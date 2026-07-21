@@ -1,0 +1,23 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+import AuthPage from './pages/AuthPage.jsx';
+import MapPage from './pages/MapPage.jsx';
+import DashboardLayout from './components/DashboardLayout.jsx';
+import SummaryPage from './pages/SummaryPage.jsx';
+import CattlePage from './pages/CattlePage.jsx';
+import PaddocksPage from './pages/PaddocksPage.jsx';
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/registro" element={<AuthPage mode="register" />} />
+      <Route element={<DashboardLayout />}>
+        <Route path="/resumen" element={<SummaryPage />} />
+        <Route path="/mapa" element={<MapPage />} />
+        <Route path="/potreros" element={<PaddocksPage />} />
+        <Route path="/ganado" element={<CattlePage />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}

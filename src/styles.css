@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Manrope:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Manrope', 'Segoe UI', sans-serif;
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --color-forest-950: #0f0f11;
+  --color-forest-900: #161619;
+  --color-forest-800: #222227;
+  --color-forest-700: #3c3c43;
+  --color-cream-50: #faf9f3;
+  --color-cream-100: #f2efe3;
+  --color-clay-500: #d47745;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: #0b0b0c;
+  color: #f4f4f5;
+  font-size: 13px;
+} /* Letras más grandes */
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+  background: #161619;
+}
+.leaflet-control-zoom {
+  border: 0 !important;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 35%) !important;
+}
+.leaflet-control-zoom a {
+  color: #f4f4f5 !important;
+  background-color: #222227 !important;
+}
+.leaflet-tooltip.paddock-label {
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 7px;
+  color: #f4f4f5;
+  background: #161619eb;
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 3px 12px #0008;
+}
+.leaflet-tooltip.distance-label {
+  border: 1px solid #ffffff33;
+  border-radius: 5px;
+  padding: 2px 5px;
+  color: #fff;
+  background: #161619eb;
+  font-size: 9px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.leaflet-tooltip.vertex-label {
+  border: 1px solid #ffffff66;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: #f4f4f5;
+  background: #0b0b0ceb;
+  font-size: 9px;
+  font-weight: 600;
+}
+.leaflet-tooltip-top.distance-label::before {
+  border-top-color: #161619eb;
+}
+.drawing-map,
+.drawing-map .leaflet-interactive {
+  cursor: crosshair !important;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 0.45s ease-out both;
+}
