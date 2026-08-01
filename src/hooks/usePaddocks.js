@@ -44,13 +44,22 @@ export default function usePaddocks() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(paddocks))
   }, [paddocks])
 
-  function addPaddock(paddock) {
+  function addPaddock(paddock, customCattleList = null) {
     setPaddocks((current) => [...current, paddock])
 
     const count = Number(paddock.animals) || 0
-    if (count > 0) {
-      const currentCattle = readCattle()
-      const newCattle = [...currentCattle]
+    const currentCattle = readCattle()
+    let newCattle = [...currentCattle]
+
+    if (customCattleList && Array.isArray(customCattleList) && customCattleList.length > 0) {
+      customCattleList.forEach((c) => {
+        newCattle.push({
+          ...c,
+          id: generateUniqueCaravana(newCattle),
+          paddock: paddock.name
+        })
+      })
+    } else if (count > 0) {
       for (let i = 0; i < count; i++) {
         newCattle.push({
           id: generateUniqueCaravana(newCattle),
@@ -61,8 +70,8 @@ export default function usePaddocks() {
           paddock: paddock.name
         })
       }
-      writeCattle(newCattle)
     }
+    writeCattle(newCattle)
   }
 
   function removePaddock(id) {
@@ -76,7 +85,7 @@ export default function usePaddocks() {
     }
   }
 
-  function updatePaddock(updatedPaddock) {
+  function updatePaddock(updatedPaddock, customCattleList = null) {
     const oldPaddock = paddocks.find((p) => p.id === updatedPaddock.id)
     setPaddocks((current) => current.map((paddock) => paddock.id === updatedPaddock.id ? updatedPaddock : paddock))
 
@@ -89,30 +98,42 @@ export default function usePaddocks() {
         updatedCattle = updatedCattle.map((c) => c.paddock === oldPaddock.name ? { ...c, paddock: updatedPaddock.name } : c)
       }
 
-      // 2. Adjust cattle count
-      const oldCount = Number(oldPaddock.animals) || 0
-      const newCount = Number(updatedPaddock.animals) || 0
-
-      if (newCount > oldCount) {
-        const diff = newCount - oldCount
-        for (let i = 0; i < diff; i++) {
+      if (customCattleList && Array.isArray(customCattleList)) {
+        // Replace current paddock cattle with newly specified custom cattle list
+        updatedCattle = updatedCattle.filter((c) => c.paddock !== updatedPaddock.name && c.paddock !== oldPaddock.name)
+        customCattleList.forEach((c) => {
           updatedCattle.push({
-            id: generateUniqueCaravana(updatedCattle),
-            category: '-',
-            weight: '-',
-            cc: '-',
-            status: 'DESCONOCIDO',
+            ...c,
+            id: c.id || generateUniqueCaravana(updatedCattle),
             paddock: updatedPaddock.name
           })
-        }
-      } else if (newCount < oldCount) {
-        const diff = oldCount - newCount
-        let removed = 0
-        for (let i = updatedCattle.length - 1; i >= 0; i--) {
-          if (updatedCattle[i].paddock === updatedPaddock.name) {
-            updatedCattle.splice(i, 1)
-            removed++
-            if (removed === diff) break
+        })
+      } else {
+        // 2. Adjust cattle count
+        const oldCount = Number(oldPaddock.animals) || 0
+        const newCount = Number(updatedPaddock.animals) || 0
+
+        if (newCount > oldCount) {
+          const diff = newCount - oldCount
+          for (let i = 0; i < diff; i++) {
+            updatedCattle.push({
+              id: generateUniqueCaravana(updatedCattle),
+              category: '-',
+              weight: '-',
+              cc: '-',
+              status: 'DESCONOCIDO',
+              paddock: updatedPaddock.name
+            })
+          }
+        } else if (newCount < oldCount) {
+          const diff = oldCount - newCount
+          let removed = 0
+          for (let i = updatedCattle.length - 1; i >= 0; i--) {
+            if (updatedCattle[i].paddock === updatedPaddock.name) {
+              updatedCattle.splice(i, 1)
+              removed++
+              if (removed === diff) break
+            }
           }
         }
       }

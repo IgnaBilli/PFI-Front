@@ -2,8 +2,8 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Manrope', 'Segoe UI', sans-serif;
-  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-sans: 'Times New Roman', Times, serif;
+  --font-display: 'Times New Roman', Times, serif;
   --color-forest-950: #0f0f11;
   --color-forest-900: #161619;
   --color-forest-800: #222227;
@@ -26,10 +26,13 @@ body {
   background: #0b0b0c;
   color: #f4f4f5;
   font-size: 13px;
+  font-family: 'Times New Roman', Times, serif;
 } /* Letras más grandes */
 button,
-input {
-  font: inherit;
+input,
+select,
+textarea {
+  font-family: 'Times New Roman', Times, serif;
 }
 button {
   cursor: pointer;

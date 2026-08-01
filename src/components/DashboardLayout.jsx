@@ -16,11 +16,8 @@ export default function DashboardLayout() {
     <main className="flex h-dvh min-h-[560px] overflow-hidden bg-[#0b0b0c] text-stone-200 text-sm">
       <aside
         className={`fixed inset-y-0 left-0 z-[2000] flex w-52 flex-col border-r border-white/[.06] bg-[#0f0f11] px-3.5 py-5 transition-transform md:relative md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between px-2">
+        <div className="flex items-center justify-between px-3">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-md bg-[#222227] text-white">
-              <Leaf size={15} strokeWidth={2.5} />
-            </span>
             <div>
               <strong className="block text-[13px] tracking-wide text-white font-bold">
                 TerraBovina

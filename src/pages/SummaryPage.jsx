@@ -62,9 +62,7 @@ export default function SummaryPage() {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-white">Estancia Casualidad</h1>
-          <p className="mt-0.5 text-[11px] text-stone-500">
-            Gral. Villegas, Buenos Aires · 1.840 ha · {paddocks.length} potreros
-          </p>
+          <p className="mt-0.5 text-[11px] text-stone-500">{paddocks.length} Potreros</p>
         </div>
         <Link
           to="/mapa"
