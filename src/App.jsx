@@ -5,17 +5,31 @@ import DashboardLayout from './components/DashboardLayout.jsx';
 import SummaryPage from './pages/SummaryPage.jsx';
 import CattlePage from './pages/CattlePage.jsx';
 import PaddocksPage from './pages/PaddocksPage.jsx';
+import OnboardingEstanciaPage from './pages/OnboardingEstanciaPage.jsx';
+import { RequireAuth, RequireEstancia, RequireNoEstancia } from './components/RouteGuards.jsx';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/registro" element={<AuthPage mode="register" />} />
-      <Route element={<DashboardLayout />}>
-        <Route path="/resumen" element={<SummaryPage />} />
-        <Route path="/mapa" element={<MapPage />} />
-        <Route path="/potreros" element={<PaddocksPage />} />
-        <Route path="/ganado" element={<CattlePage />} />
+      <Route
+        path="/onboarding/estancia"
+        element={
+          <RequireAuth>
+            <RequireNoEstancia>
+              <OnboardingEstanciaPage />
+            </RequireNoEstancia>
+          </RequireAuth>
+        }
+      />
+      <Route element={<RequireEstancia />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="/resumen" element={<SummaryPage />} />
+          <Route path="/mapa" element={<MapPage />} />
+          <Route path="/potreros" element={<PaddocksPage />} />
+          <Route path="/ganado" element={<CattlePage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

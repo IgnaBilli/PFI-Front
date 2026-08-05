@@ -1,146 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { fetchPaddocks } from '../services/paddockService.js'
+import { mapPaddockFromApi } from '../services/mappers.js'
 
-const STORAGE_KEY = 'terrabovina-paddocks'
-const CATTLE_KEY = 'terrabovina-cattle'
+export default function usePaddocks(estanciaId) {
+  const [paddocks, setPaddocks] = useState([])
+  const [loading, setLoading] = useState(Boolean(estanciaId))
+  const [error, setError] = useState('')
 
-function readPaddocks() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? []
-  } catch {
-    return []
-  }
-}
-
-function readCattle() {
-  try {
-    return JSON.parse(localStorage.getItem(CATTLE_KEY)) ?? []
-  } catch {
-    return []
-  }
-}
-
-function writeCattle(cattle) {
-  localStorage.setItem(CATTLE_KEY, JSON.stringify(cattle))
-}
-
-function generateUniqueCaravana(existingCattle) {
-  const existingIds = new Set(existingCattle.map((c) => c.id))
-  let attempts = 0
-  while (attempts < 1000) {
-    const num = Math.floor(1000 + Math.random() * 9000)
-    const id = `AR-${num}`
-    if (!existingIds.has(id)) {
-      return id
+  const reload = useCallback(async () => {
+    if (!estanciaId) {
+      setPaddocks([])
+      setLoading(false)
+      return
     }
-    attempts++
-  }
-  return `AR-${Math.floor(1000 + Math.random() * 9000)}`
-}
-
-export default function usePaddocks() {
-  const [paddocks, setPaddocks] = useState(readPaddocks)
+    setLoading(true)
+    setError('')
+    try {
+      const data = await fetchPaddocks(estanciaId)
+      // GET .../potrero devuelve también los potreros dados de baja
+      // (borrado lógico, activo=false); se excluyen de la UI.
+      setPaddocks((data ?? []).filter((p) => p.activo).map((p) => mapPaddockFromApi(p, 0)))
+    } catch (err) {
+      setError(err.message || 'No se pudieron cargar los potreros.')
+    } finally {
+      setLoading(false)
+    }
+  }, [estanciaId])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(paddocks))
-  }, [paddocks])
+    reload()
+  }, [reload])
 
-  function addPaddock(paddock, customCattleList = null) {
-    setPaddocks((current) => [...current, paddock])
-
-    const count = Number(paddock.animals) || 0
-    const currentCattle = readCattle()
-    let newCattle = [...currentCattle]
-
-    if (customCattleList && Array.isArray(customCattleList) && customCattleList.length > 0) {
-      customCattleList.forEach((c) => {
-        newCattle.push({
-          ...c,
-          id: generateUniqueCaravana(newCattle),
-          paddock: paddock.name
-        })
-      })
-    } else if (count > 0) {
-      for (let i = 0; i < count; i++) {
-        newCattle.push({
-          id: generateUniqueCaravana(newCattle),
-          category: '-',
-          weight: '-',
-          cc: '-',
-          status: 'DESCONOCIDO',
-          paddock: paddock.name
-        })
-      }
-    }
-    writeCattle(newCattle)
-  }
-
-  function removePaddock(id) {
-    const paddockToRemove = paddocks.find((p) => p.id === id)
-    setPaddocks((current) => current.filter((paddock) => paddock.id !== id))
-
-    if (paddockToRemove) {
-      const currentCattle = readCattle()
-      const updatedCattle = currentCattle.filter((c) => c.paddock !== paddockToRemove.name)
-      writeCattle(updatedCattle)
-    }
-  }
-
-  function updatePaddock(updatedPaddock, customCattleList = null) {
-    const oldPaddock = paddocks.find((p) => p.id === updatedPaddock.id)
-    setPaddocks((current) => current.map((paddock) => paddock.id === updatedPaddock.id ? updatedPaddock : paddock))
-
-    if (oldPaddock) {
-      const currentCattle = readCattle()
-      let updatedCattle = [...currentCattle]
-
-      // 1. If renamed, update cattle paddock names
-      if (oldPaddock.name !== updatedPaddock.name) {
-        updatedCattle = updatedCattle.map((c) => c.paddock === oldPaddock.name ? { ...c, paddock: updatedPaddock.name } : c)
-      }
-
-      if (customCattleList && Array.isArray(customCattleList)) {
-        // Replace current paddock cattle with newly specified custom cattle list
-        updatedCattle = updatedCattle.filter((c) => c.paddock !== updatedPaddock.name && c.paddock !== oldPaddock.name)
-        customCattleList.forEach((c) => {
-          updatedCattle.push({
-            ...c,
-            id: c.id || generateUniqueCaravana(updatedCattle),
-            paddock: updatedPaddock.name
-          })
-        })
-      } else {
-        // 2. Adjust cattle count
-        const oldCount = Number(oldPaddock.animals) || 0
-        const newCount = Number(updatedPaddock.animals) || 0
-
-        if (newCount > oldCount) {
-          const diff = newCount - oldCount
-          for (let i = 0; i < diff; i++) {
-            updatedCattle.push({
-              id: generateUniqueCaravana(updatedCattle),
-              category: '-',
-              weight: '-',
-              cc: '-',
-              status: 'DESCONOCIDO',
-              paddock: updatedPaddock.name
-            })
-          }
-        } else if (newCount < oldCount) {
-          const diff = oldCount - newCount
-          let removed = 0
-          for (let i = updatedCattle.length - 1; i >= 0; i--) {
-            if (updatedCattle[i].paddock === updatedPaddock.name) {
-              updatedCattle.splice(i, 1)
-              removed++
-              if (removed === diff) break
-            }
-          }
-        }
-      }
-
-      writeCattle(updatedCattle)
-    }
-  }
-
-  return { paddocks, addPaddock, removePaddock, updatePaddock }
+  return { paddocks, loading, error, reload, setError }
 }

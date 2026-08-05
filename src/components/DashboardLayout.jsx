@@ -1,6 +1,7 @@
-import { Beef, ChartNoAxesCombined, Leaf, LogOut, Map, Menu, X, LandPlot } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Beef, ChartNoAxesCombined, LogOut, Map, Menu, X, LandPlot } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const navigation = [
   { to: '/resumen', label: 'Resumen', icon: ChartNoAxesCombined },
@@ -11,6 +12,13 @@ const navigation = [
 
 export default function DashboardLayout() {
   const [open, setOpen] = useState(false);
+  const { estancia, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate('/login');
+  }
 
   return (
     <main className="flex h-dvh min-h-[560px] overflow-hidden bg-[#0b0b0c] text-stone-200 text-sm">
@@ -50,14 +58,16 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="mt-auto rounded-lg border border-white/[.06] bg-[#161619] p-3.5">
-          <p className="truncate text-[12px] font-bold text-stone-200">Estancia Casualidad</p>
+          <p className="truncate text-[12px] font-bold text-stone-200">
+            {estancia?.nombre || 'Mi estancia'}
+          </p>
           <p className="mt-0.5 text-[10px] text-stone-500 font-medium">Argentina</p>
         </div>
-        <NavLink
-          to="/login"
+        <button
+          onClick={handleLogout}
           className="mt-2 flex items-center gap-3 rounded-lg px-3 py-3 text-[12px] font-semibold text-stone-500 hover:bg-white/[.04] hover:text-white">
           <LogOut size={16} /> Cerrar sesión
-        </NavLink>
+        </button>
       </aside>
 
       {open && (

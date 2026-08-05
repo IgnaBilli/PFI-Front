@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { X, Plus, Beef } from 'lucide-react';
-import { generateUniqueCaravana } from '../hooks/useCattle.js';
-
-const CATEGORIES = ['Vaca', 'Vaquilla', 'Novillo', 'Toro', 'Ternero/Ternera'];
+import { useEffect, useState } from 'react';
+import { X, Plus } from 'lucide-react';
+import { buildCattleCreatePayload, CATEGORY_OPTIONS } from '../services/mappers.js';
 
 const STATUS_OPTIONS = [
   { value: 'L', label: 'L: Lactando (produciendo leche)' },
@@ -20,21 +18,50 @@ export default function AddCattleModal({
   onClose,
   onAdd,
   paddocks = [],
-  defaultPaddock = '',
+  existingCaravanas = [],
+  lockedPaddockLabel = null,
 }) {
-  const [category, setCategory] = useState('Vaca');
+  const [category, setCategory] = useState('VACA');
+  const [sex, setSex] = useState('M');
   const [quantity, setQuantity] = useState('1');
+  const [identifications, setIdentifications] = useState(['']);
   const [weight, setWeight] = useState('');
   const [cc, setCc] = useState('');
   const [status, setStatus] = useState('N');
-  const [selectedPaddock, setSelectedPaddock] = useState(
-    defaultPaddock || (paddocks[0]?.name ?? '')
-  );
+  const [selectedPaddockId, setSelectedPaddockId] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCategory('VACA');
+    setSex('M');
+    setQuantity('1');
+    setIdentifications(['']);
+    setWeight('');
+    setCc('');
+    setStatus('N');
+    setSelectedPaddockId('');
+    setError('');
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const isVaca = category === 'Vaca';
+  const isVaca = category === 'VACA';
+  const existingSet = new Set(existingCaravanas.map((c) => String(c).trim().toLowerCase()));
+
+  function handleQuantityChange(value) {
+    setQuantity(value);
+    const qty = Math.max(1, parseInt(value, 10) || 1);
+    setIdentifications((current) => {
+      const next = current.slice(0, qty);
+      while (next.length < qty) next.push('');
+      return next;
+    });
+  }
+
+  function updateIdentification(index, value) {
+    setIdentifications((current) => current.map((item, i) => (i === index ? value : item)));
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -46,44 +73,55 @@ export default function AddCattleModal({
       return;
     }
 
+    const trimmedIds = identifications.map((id) => id.trim());
+    if (trimmedIds.some((id) => !id)) {
+      setError('Ingresá la caravana o número de identificación de cada animal.');
+      return;
+    }
+    const lowerIds = trimmedIds.map((id) => id.toLowerCase());
+    if (new Set(lowerIds).size !== lowerIds.length) {
+      setError('Hay caravanas repetidas en la lista.');
+      return;
+    }
+    if (lowerIds.some((id) => existingSet.has(id))) {
+      setError('Una de las caravanas ya está registrada en el rodeo.');
+      return;
+    }
+
+    const weightNumber = Number(weight);
+    if (!weight.trim() || !Number.isFinite(weightNumber) || weightNumber <= 0) {
+      setError('Ingresá un peso vivo válido en kg.');
+      return;
+    }
+
     if (isVaca) {
-      if (cc !== '') {
-        const numCc = parseFloat(cc);
-        if (isNaN(numCc) || numCc < 1 || numCc > 5) {
-          setError('La condición corporal debe estar entre 1.0 y 5.0.');
-          return;
-        }
+      const numCc = parseFloat(cc);
+      if (cc === '' || isNaN(numCc) || numCc < 1 || numCc > 5) {
+        setError('La condición corporal es obligatoria para la categoría Vaca (escala 1.0 a 5.0).');
+        return;
       }
     }
 
-    const formattedWeight = weight.trim()
-      ? weight.toLowerCase().includes('kg')
-        ? weight.trim()
-        : `${weight.trim()} kg`
-      : '-';
-    const formattedCc = isVaca && cc.trim() ? cc.trim() : '-';
-    const formattedStatus = isVaca ? status : 'DESCONOCIDO';
-
-    // Create array of animals
-    const newAnimals = [];
-    for (let i = 0; i < qty; i++) {
-      newAnimals.push({
-        id: generateUniqueCaravana([]), // generate initial format
+    const animals = trimmedIds.map((caravana) =>
+      buildCattleCreatePayload({
+        caravana,
+        sex,
         category,
-        weight: formattedWeight,
-        cc: formattedCc,
-        status: formattedStatus,
-        paddock: selectedPaddock || defaultPaddock || '-',
-      });
-    }
+        weight: weightNumber,
+        cc: isVaca ? cc : '',
+        status: isVaca ? status : 'DESCONOCIDO',
+      })
+    );
 
-    onAdd(newAnimals);
+    const paddockId = lockedPaddockLabel ? null : selectedPaddockId ? Number(selectedPaddockId) : null;
+
+    onAdd({ paddockId, animals });
     onClose();
   }
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/[.08] pb-4">
           <div className="flex items-center gap-2">
             <div>
@@ -101,15 +139,21 @@ export default function AddCattleModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-[12px]">
-          {paddocks.length > 0 && !defaultPaddock && (
+          {lockedPaddockLabel ? (
+            <div className="rounded-lg border border-white/[.06] bg-white/[.03] px-3.5 py-2.5 text-[11px] text-stone-400">
+              Se asignará al potrero <strong className="text-white">{lockedPaddockLabel}</strong> al
+              guardar.
+            </div>
+          ) : (
             <div>
-              <label className="block font-bold text-stone-400">Potrero de Destino</label>
+              <label className="block font-bold text-stone-400">Potrero de Destino (opcional)</label>
               <select
-                value={selectedPaddock}
-                onChange={(e) => setSelectedPaddock(e.target.value)}
+                value={selectedPaddockId}
+                onChange={(e) => setSelectedPaddockId(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
+                <option value="">Sin potrero</option>
                 {paddocks.map((p) => (
-                  <option key={p.id} value={p.name}>
+                  <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
@@ -124,35 +168,73 @@ export default function AddCattleModal({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
+              <label className="block font-bold text-stone-400">Sexo</label>
+              <select
+                value={sex}
+                onChange={(e) => setSex(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
+                <option value="M">Macho</option>
+                <option value="F">Hembra</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block font-bold text-stone-400">Cantidad (cabezas)</label>
               <input
                 type="number"
                 min="1"
                 value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-stone-400">Peso Vivo (kg)</label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="Ej: 380"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-bold text-stone-400">Peso Vivo (kg)</label>
-            <input
-              type="text"
-              placeholder="Ej: 380"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
-            />
+            <label className="block font-bold text-stone-400">
+              {identifications.length > 1 ? 'Identificación de cada animal' : 'Caravana / N° de identificación'}
+            </label>
+            <div className="mt-1.5 space-y-1.5">
+              {identifications.map((value, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  {identifications.length > 1 && (
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-stone-700 text-[10px] font-bold text-white">
+                      {index + 1}
+                    </span>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Ej: AR-1234"
+                    value={value}
+                    onChange={(e) => updateIdentification(index, e.target.value)}
+                    className="w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {isVaca ? (
@@ -190,8 +272,8 @@ export default function AddCattleModal({
             </>
           ) : (
             <div className="rounded-lg bg-white/[.02] border border-white/[.05] p-3 text-[11px] text-stone-500">
-              * Para la categoría <strong className="text-stone-300">{category}</strong> solo se
-              requiere Peso Vivo. La Condición Corporal y Estado Fisiológico no aplican.
+              * Para esta categoría solo se requiere Peso Vivo. La Condición Corporal y Estado
+              Fisiológico no aplican.
             </div>
           )}
 

@@ -1,114 +1,212 @@
-import { Beef, Search, SlidersHorizontal, Pencil, Check, X, Plus, Trash2 } from 'lucide-react';
+import { Beef, Search, SlidersHorizontal, Pencil, Check, X, Plus, Trash2, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import useCattle from '../hooks/useCattle.js';
 import usePaddocks from '../hooks/usePaddocks.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import AddCattleModal from '../components/AddCattleModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import {
+  CATEGORY_OPTIONS,
+  CATEGORY_UI_TO_API,
+  buildCattlePatchPayload,
+  parseWeightKg,
+  withAnimalCounts,
+} from '../services/mappers.js';
+import {
+  assignCattle,
+  bulkDeleteCattle,
+  bulkUpdateCategory,
+  createCattleForEstancia,
+  createCattleForPaddock,
+  deleteCattle,
+  relocateCattle,
+  updateCattle,
+} from '../services/cattleService.js';
+import { ApiError } from '../services/api.js';
+
+const STATUS_OPTIONS = [
+  { value: 'L', label: 'L: Lactando (produciendo leche)' },
+  { value: 'P', label: 'P: Preñada / Gestante' },
+  { value: 'B', label: 'B: Seca / Vacía' },
+  { value: 'N', label: 'N: Normal / No gestante ni lactante' },
+  { value: 'P/L', label: 'P/L: Preñada y Lactando simultáneamente' },
+  { value: 'B/L', label: 'B/L: Seca y Lactando (o transiciones)' },
+  { value: 'N/P', label: 'N/P: No lactante y Preñada' },
+  { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado' },
+];
 
 export default function CattlePage() {
-  const { cattle, addAnimal, removeAnimal, updateAnimal, updateCattle } = useCattle();
-  const { paddocks } = usePaddocks();
+  const { estanciaId } = useAuth();
+  const { cattle, loading: cattleLoading, error: cattleError, reload: reloadCattle } = useCattle(estanciaId);
+  const { paddocks, loading: paddocksLoading, reload: reloadPaddocks } = usePaddocks(estanciaId);
+  const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
+
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [editingOriginal, setEditingOriginal] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  // State for form edits
+  // Edit form state
   const [category, setCategory] = useState('');
   const [weight, setWeight] = useState('');
   const [cc, setCc] = useState('');
   const [status, setStatus] = useState('');
-  const [paddock, setPaddock] = useState('');
+  const [paddockId, setPaddockId] = useState('');
 
-  // State for bulk selection
+  // Bulk selection
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkCategory, setBulkCategory] = useState('');
 
-  const CATEGORIES = ['Vaca', 'Vaquilla', 'Novillo', 'Toro', 'Ternero/Ternera'];
+  // Confirm dialogs
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id } | null
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
-  const STATUS_OPTIONS = [
-    { value: 'L', label: 'L: Lactando (produciendo leche)' },
-    { value: 'P', label: 'P: Preñada / Gestante' },
-    { value: 'B', label: 'B: Seca / Vacía' },
-    { value: 'N', label: 'N: Normal / No gestante ni lactante' },
-    { value: 'P/L', label: 'P/L: Preñada y Lactando simultáneamente' },
-    { value: 'B/L', label: 'B/L: Seca y Lactando (o transiciones)' },
-    { value: 'N/P', label: 'N/P: No lactante y Preñada' },
-    { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado' },
-  ];
+  const loading = cattleLoading || paddocksLoading;
 
   const filtered = cattle.filter((animal) =>
     Object.values(animal).some((value) => String(value).toLowerCase().includes(query.toLowerCase()))
   );
 
-  function handleAddCustomCattle(newAnimals) {
-    newAnimals.forEach((animal) => {
-      addAnimal(animal);
-    });
+  async function reloadAll() {
+    await Promise.all([reloadCattle(), reloadPaddocks()]);
+  }
+
+  async function handleAddCustomCattle({ paddockId: targetPaddockId, animals }) {
+    setMutating(true);
+    setActionError('');
+    try {
+      for (const payload of animals) {
+        if (targetPaddockId) {
+          await createCattleForPaddock(targetPaddockId, payload);
+        } else {
+          await createCattleForEstancia(estanciaId, payload);
+        }
+      }
+      await reloadAll();
+    } catch (err) {
+      setActionError(err.message || 'No se pudo agregar el ganado.');
+    } finally {
+      setMutating(false);
+    }
   }
 
   function startEdit(animal) {
     setEditingId(animal.id);
-    setCategory(CATEGORIES.includes(animal.category) ? animal.category : CATEGORIES[0]);
-    setWeight(animal.weight === '-' ? '' : animal.weight);
-    setCc(animal.cc === '-' ? '' : animal.cc);
+    setEditingOriginal(animal);
+    setCategory(CATEGORY_UI_TO_API[animal.category] ?? animal.category);
+    setWeight(animal.weight === '-' ? '' : String(parseWeightKg(animal.weight) ?? ''));
+    setCc(animal.cc === '-' ? '' : String(animal.cc));
     setStatus(animal.status);
-    setPaddock(animal.paddock);
+    setPaddockId(animal.paddockId != null ? String(animal.paddockId) : '');
+    setActionError('');
   }
 
   function handleCategoryChangeInEdit(newCategory) {
     setCategory(newCategory);
-    if (newCategory !== 'Vaca') {
-      setCc('-');
+    if (newCategory !== 'VACA') {
+      setCc('');
       setStatus('DESCONOCIDO');
-    } else {
-      if (cc === '-') setCc('');
-      if (status === 'DESCONOCIDO') setStatus('N');
+    } else if (status === 'DESCONOCIDO') {
+      setStatus('N');
     }
-  }
-
-  function handleSave(id) {
-    const isVaca = category === 'Vaca';
-    updateAnimal({
-      id,
-      category: category,
-      weight: weight.trim()
-        ? weight.toLowerCase().includes('kg')
-          ? weight.trim()
-          : `${weight.trim()} kg`
-        : '-',
-      cc: isVaca && cc.trim() && cc !== '-' ? cc.trim() : '-',
-      status: isVaca ? status || 'DESCONOCIDO' : 'DESCONOCIDO',
-      paddock: paddock,
-    });
-    setEditingId(null);
   }
 
   function handleCancel() {
     setEditingId(null);
+    setEditingOriginal(null);
   }
 
-  function handleDeleteOne(id) {
-    if (window.confirm('¿Estás seguro de que querés eliminar este animal del rodeo?')) {
-      removeAnimal(id);
-      setSelectedIds((prev) => prev.filter((item) => item !== id));
+  async function handleSave(id) {
+    if (!editingOriginal) return;
+    setMutating(true);
+    setActionError('');
+    try {
+      const originalCategoryApi = CATEGORY_UI_TO_API[editingOriginal.category] ?? editingOriginal.category;
+      const originalWeight = parseWeightKg(editingOriginal.weight);
+      const originalCc = editingOriginal.cc === '-' ? '' : String(editingOriginal.cc);
+      const isVaca = category === 'VACA';
+
+      const attributesChanged =
+        category !== originalCategoryApi ||
+        parseWeightKg(weight) !== originalWeight ||
+        (isVaca && (cc !== originalCc || status !== editingOriginal.status));
+
+      const newPaddockId = paddockId ? Number(paddockId) : null;
+      const originalPaddockId = editingOriginal.paddockId ?? null;
+
+      if (newPaddockId !== originalPaddockId && newPaddockId !== null) {
+        if (originalPaddockId === null) {
+          await assignCattle({ id_potrero: newPaddockId, id_ganado: [id] });
+        } else {
+          await relocateCattle(originalPaddockId, {
+            id_potrero_destino: newPaddockId,
+            id_ganado: [id],
+            fecha_movimiento: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (attributesChanged) {
+        await updateCattle(
+          id,
+          buildCattlePatchPayload({ category, weight, cc: isVaca ? cc : '', status: isVaca ? status : 'DESCONOCIDO' })
+        );
+      }
+
+      await reloadAll();
+      setEditingId(null);
+      setEditingOriginal(null);
+    } catch (err) {
+      setActionError(err.message || 'No se pudo guardar los cambios.');
+    } finally {
+      setMutating(false);
     }
   }
 
-  function handleBulkDelete() {
-    if (
-      window.confirm(
-        `¿Estás seguro de que querés eliminar los ${selectedIds.length} animales seleccionados?`
-      )
-    ) {
-      const updatedCattle = cattle.filter((animal) => !selectedIds.includes(animal.id));
-      updateCattle(updatedCattle);
+  function handleDeleteOne(id) {
+    setConfirmDelete({ id });
+  }
+
+  async function confirmDeleteOne() {
+    if (!confirmDelete) return;
+    setMutating(true);
+    setActionError('');
+    try {
+      await deleteCattle(confirmDelete.id);
+      await reloadAll();
+      setSelectedIds((prev) => prev.filter((item) => item !== confirmDelete.id));
+      setConfirmDelete(null);
+    } catch (err) {
+      setActionError(err.message || 'No se pudo eliminar el animal.');
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function confirmBulkDeleteAction() {
+    setMutating(true);
+    setActionError('');
+    try {
+      await bulkDeleteCattle(selectedIds);
+      await reloadAll();
       setSelectedIds([]);
+      setConfirmBulkDelete(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setActionError('No se pudo completar la baja masiva: algunos animales no existen. La operación se revirtió por completo.');
+      } else {
+        setActionError(err.message || 'No se pudo eliminar los animales seleccionados.');
+      }
+      setConfirmBulkDelete(false);
+    } finally {
+      setMutating(false);
     }
   }
 
   function handleSelectRow(id) {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   }
 
   function handleSelectAll() {
@@ -119,23 +217,24 @@ export default function CattlePage() {
     }
   }
 
-  function handleBulkCategoryApply() {
+  async function handleBulkCategoryApply() {
     if (!bulkCategory) return;
-    const updatedCattle = cattle.map((animal) => {
-      if (selectedIds.includes(animal.id)) {
-        const isVaca = bulkCategory === 'Vaca';
-        return {
-          ...animal,
-          category: bulkCategory,
-          cc: isVaca ? animal.cc : '-',
-          status: isVaca ? animal.status : 'DESCONOCIDO',
-        };
+    setMutating(true);
+    setActionError('');
+    try {
+      await bulkUpdateCategory(selectedIds.map((id) => ({ id_ganado: id, categoria: bulkCategory })));
+      await reloadAll();
+      setSelectedIds([]);
+      setBulkCategory('');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setActionError('No se pudo aplicar el cambio masivo: algunos animales no existen. La operación se revirtió por completo.');
+      } else {
+        setActionError(err.message || 'No se pudo cambiar la categoría de los animales seleccionados.');
       }
-      return animal;
-    });
-    updateCattle(updatedCattle);
-    setSelectedIds([]);
-    setBulkCategory('');
+    } finally {
+      setMutating(false);
+    }
   }
 
   return (
@@ -144,7 +243,30 @@ export default function CattlePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddCustomCattle}
-        paddocks={paddocks}
+        paddocks={paddocksWithCounts}
+        existingCaravanas={cattle.map((c) => c.caravana)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmDelete)}
+        title="Eliminar animal"
+        message="¿Estás seguro de que querés eliminar este animal del rodeo? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        danger
+        loading={mutating}
+        onConfirm={confirmDeleteOne}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmBulkDelete}
+        title="Eliminar animales seleccionados"
+        message={`¿Estás seguro de que querés eliminar los ${selectedIds.length} animales seleccionados? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        danger
+        loading={mutating}
+        onConfirm={confirmBulkDeleteAction}
+        onCancel={() => setConfirmBulkDelete(false)}
       />
 
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -157,10 +279,22 @@ export default function CattlePage() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2.5 text-[11px] font-bold text-black hover:bg-emerald-400 shadow-lg">
+          disabled={mutating}
+          className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2.5 text-[11px] font-bold text-black hover:bg-emerald-400 shadow-lg disabled:opacity-50">
           <Plus size={15} /> Agregar Ganado
         </button>
       </header>
+
+      {actionError && (
+        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+          {actionError}
+        </p>
+      )}
+      {cattleError && (
+        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+          {cattleError}
+        </p>
+      )}
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 gap-2">
@@ -186,28 +320,31 @@ export default function CattlePage() {
             <select
               value={bulkCategory}
               onChange={(e) => setBulkCategory(e.target.value)}
+              disabled={mutating}
               className="rounded border border-white/[.08] bg-[#0b0b0c] px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-stone-500">
               <option value="">Cambiar Categoría...</option>
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              {CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
             <button
               onClick={handleBulkCategoryApply}
-              disabled={!bulkCategory}
+              disabled={!bulkCategory || mutating}
               className="rounded bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-400 disabled:opacity-50">
               Aplicar
             </button>
             <button
-              onClick={handleBulkDelete}
-              className="flex items-center gap-1 rounded bg-red-500/20 border border-red-500/30 px-3 py-1.5 text-[11px] font-bold text-red-400 hover:bg-red-500/30"
+              onClick={() => setConfirmBulkDelete(true)}
+              disabled={mutating}
+              className="flex items-center gap-1 rounded bg-red-500/20 border border-red-500/30 px-3 py-1.5 text-[11px] font-bold text-red-400 hover:bg-red-500/30 disabled:opacity-50"
               title="Eliminar seleccionados">
               <Trash2 size={13} /> Eliminar seleccionados
             </button>
             <button
               onClick={() => setSelectedIds([])}
+              disabled={mutating}
               className="text-[11px] text-stone-400 hover:text-white">
               Limpiar
             </button>
@@ -216,200 +353,207 @@ export default function CattlePage() {
       </div>
 
       <section className="mt-4 overflow-hidden rounded-xl border border-white/[.06] bg-[#161619]">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left">
-            <thead>
-              <tr className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
-                <th className="px-5 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                    onChange={handleSelectAll}
-                    className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                  />
-                </th>
-                <th className="px-5 py-3 font-semibold">Caravana</th>
-                <th className="px-4 py-3 font-semibold">Categoría</th>
-                <th className="px-4 py-3 font-semibold">Peso Vivo</th>
-                <th className="px-4 py-3 font-semibold">
-                  Condición Corporal{' '}
-                  <span className="text-stone-600 font-normal lowercase">(1 al 5)</span>
-                </th>
-                <th className="px-5 py-3 font-semibold">Estado</th>
-                <th className="px-4 py-3 font-semibold">Potrero</th>
-                <th className="px-4 py-3 font-semibold text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[.05]">
-              {filtered.map((animal) => {
-                const isEditing = animal.id === editingId;
-                const isSelected = selectedIds.includes(animal.id);
-                const currentStatusOption = STATUS_OPTIONS.find(
-                  (opt) => opt.value === animal.status
-                );
-                return (
-                  <tr
-                    key={animal.id}
-                    className={`text-[12px] transition ${isSelected ? 'bg-emerald-500/[0.02] text-stone-300' : 'text-stone-400'}`}>
-                    <td className="px-5 py-4 w-10">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleSelectRow(animal.id)}
-                        className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                      />
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="flex items-center gap-2 font-bold text-stone-200">
-                        <Beef size={14} className="text-stone-400" />
-                        {animal.id}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {isEditing ? (
-                        <select
-                          value={category}
-                          onChange={(e) => handleCategoryChangeInEdit(e.target.value)}
-                          className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
-                          {CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        animal.category
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {isEditing ? (
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16 text-[12px] text-stone-500">
+            <LoaderCircle size={16} className="animate-spin" /> Cargando ganado...
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px] text-left">
+              <thead>
+                <tr className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
+                  <th className="px-5 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                      onChange={handleSelectAll}
+                      className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                    />
+                  </th>
+                  <th className="px-5 py-3 font-semibold">Caravana</th>
+                  <th className="px-4 py-3 font-semibold">Categoría</th>
+                  <th className="px-4 py-3 font-semibold">Peso Vivo</th>
+                  <th className="px-4 py-3 font-semibold">
+                    Condición Corporal{' '}
+                    <span className="text-stone-600 font-normal lowercase">(1 al 5)</span>
+                  </th>
+                  <th className="px-5 py-3 font-semibold">Estado</th>
+                  <th className="px-4 py-3 font-semibold">Potrero</th>
+                  <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[.05]">
+                {filtered.map((animal) => {
+                  const isEditing = animal.id === editingId;
+                  const isSelected = selectedIds.includes(animal.id);
+                  const currentStatusOption = STATUS_OPTIONS.find((opt) => opt.value === animal.status);
+                  const paddockOptions = animal.paddockId == null
+                    ? [{ id: '', name: 'Sin potrero' }, ...paddocksWithCounts]
+                    : paddocksWithCounts;
+                  return (
+                    <tr
+                      key={animal.id}
+                      className={`text-[12px] transition ${isSelected ? 'bg-emerald-500/[0.02] text-stone-300' : 'text-stone-400'}`}>
+                      <td className="px-5 py-4 w-10">
                         <input
-                          value={weight}
-                          onChange={(e) => setWeight(e.target.value)}
-                          placeholder="Ej: 380 kg"
-                          className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleSelectRow(animal.id)}
+                          className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
                         />
-                      ) : (
-                        animal.weight
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {isEditing ? (
-                        category === 'Vaca' ? (
-                          <input
-                            value={cc}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (
-                                val === '' ||
-                                (Number(val) >= 1 && Number(val) <= 5) ||
-                                val === '-'
-                              ) {
-                                setCc(val);
-                              }
-                            }}
-                            placeholder="1.0 - 5.0"
-                            type="number"
-                            min="1"
-                            max="5"
-                            step="0.1"
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
-                          />
-                        ) : (
-                          <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
-                        )
-                      ) : (
-                        animal.cc
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {isEditing ? (
-                        category === 'Vaca' ? (
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="flex items-center gap-2 font-bold text-stone-200">
+                          <Beef size={14} className="text-stone-400" />
+                          {animal.caravana}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {isEditing ? (
                           <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500 text-[11px]">
-                            {STATUS_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
+                            value={category}
+                            onChange={(e) => handleCategoryChangeInEdit(e.target.value)}
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
+                            {CATEGORY_OPTIONS.map((cat) => (
+                              <option key={cat.value} value={cat.value}>
+                                {cat.label}
                               </option>
                             ))}
                           </select>
                         ) : (
-                          <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
-                        )
-                      ) : (
-                        <span
-                          title={currentStatusOption ? currentStatusOption.label : animal.status}
-                          className="rounded-full bg-white/[.05] px-2.5 py-1 text-[10px] font-semibold text-stone-300 cursor-help">
-                          {animal.status}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {isEditing ? (
-                        <select
-                          value={paddock}
-                          onChange={(e) => setPaddock(e.target.value)}
-                          className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
-                          {paddocks.map((p) => (
-                            <option key={p.id} value={p.name}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        animal.paddock
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      {isEditing ? (
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            onClick={() => handleSave(animal.id)}
-                            className="grid size-7 place-items-center rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                            title="Guardar">
-                            <Check size={13} />
-                          </button>
-                          <button
-                            onClick={handleCancel}
-                            className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                            title="Cancelar">
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            onClick={() => startEdit(animal)}
-                            className="grid size-7 place-items-center rounded bg-white/[.04] text-stone-400 hover:bg-white/[.08] hover:text-white"
-                            title="Editar">
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteOne(animal.id)}
-                            className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                            title="Eliminar animal">
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {filtered.length === 0 && (
+                          animal.category
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={weight}
+                            onChange={(e) => setWeight(e.target.value)}
+                            placeholder="Ej: 380"
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
+                          />
+                        ) : (
+                          animal.weight
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {isEditing ? (
+                          category === 'VACA' ? (
+                            <input
+                              value={cc}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || (Number(val) >= 1 && Number(val) <= 5)) {
+                                  setCc(val);
+                                }
+                              }}
+                              placeholder="1.0 - 5.0"
+                              type="number"
+                              min="1"
+                              max="5"
+                              step="0.1"
+                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
+                            />
+                          ) : (
+                            <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
+                          )
+                        ) : (
+                          animal.cc
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        {isEditing ? (
+                          category === 'VACA' ? (
+                            <select
+                              value={status}
+                              onChange={(e) => setStatus(e.target.value)}
+                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500 text-[11px]">
+                              {STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
+                          )
+                        ) : (
+                          <span
+                            title={currentStatusOption ? currentStatusOption.label : animal.status}
+                            className="rounded-full bg-white/[.05] px-2.5 py-1 text-[10px] font-semibold text-stone-300 cursor-help">
+                            {animal.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {isEditing ? (
+                          <select
+                            value={paddockId}
+                            onChange={(e) => setPaddockId(e.target.value)}
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
+                            {paddockOptions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          animal.paddock
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        {isEditing ? (
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => handleSave(animal.id)}
+                              disabled={mutating}
+                              className="grid size-7 place-items-center rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+                              title="Guardar">
+                              {mutating ? <LoaderCircle size={13} className="animate-spin" /> : <Check size={13} />}
+                            </button>
+                            <button
+                              onClick={handleCancel}
+                              disabled={mutating}
+                              className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                              title="Cancelar">
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => startEdit(animal)}
+                              disabled={mutating}
+                              className="grid size-7 place-items-center rounded bg-white/[.04] text-stone-400 hover:bg-white/[.08] hover:text-white disabled:opacity-50"
+                              title="Editar">
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteOne(animal.id)}
+                              disabled={mutating}
+                              className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                              title="Eliminar animal">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
           <p className="py-12 text-center text-[12px] text-stone-500">
             No se encontraron animales.
           </p>
         )}
       </section>
-      <p className="mt-3 text-[10px] text-stone-600">
-        Gestión de datos de caravanas en memoria local (sincronizada con potreros).
-      </p>
     </div>
   );
 }

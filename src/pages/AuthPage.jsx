@@ -1,15 +1,40 @@
-import { ArrowRight, Eye, Leaf, LockKeyhole, Mail, User } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, Eye, Leaf, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
 
 import bgImage from '../../images/image.jpg';
 
 export default function AuthPage({ mode }) {
   const isRegister = mode === 'register';
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, register } = useAuth();
 
-  function handleSubmit(event) {
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(event) {
     event.preventDefault();
-    navigate('/mapa');
+    setError('');
+    setLoading(true);
+    try {
+      if (isRegister) {
+        await register(nombre.trim(), email.trim(), password);
+        navigate('/login', { state: { registered: true } });
+      } else {
+        const { hasEstancia } = await login(email.trim(), password);
+        navigate(hasEstancia ? '/resumen' : '/onboarding/estancia');
+      }
+    } catch (err) {
+      setError(err.message || 'Ocurrió un error inesperado.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -59,26 +84,66 @@ export default function AuthPage({ mode }) {
               : 'Usá tus credenciales para continuar.'}
           </p>
 
+          {!isRegister && location.state?.registered && (
+            <p className="mt-5 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-emerald-400">
+              <CheckCircle2 size={15} className="shrink-0" /> Cuenta creada con éxito. Ingresá con tus
+              credenciales.
+            </p>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
             {isRegister && (
-              <Field icon={User} label="Nombre completo" type="text" placeholder="Juan Pérez" />
+              <Field
+                icon={User}
+                label="Nombre completo"
+                type="text"
+                placeholder="Juan Pérez"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+              />
             )}
             <Field
               icon={Mail}
               label="Correo electrónico"
               type="email"
               placeholder="nombre@correo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <Field
               icon={LockKeyhole}
               label="Contraseña"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="Mínimo 8 caracteres"
-              action={<Eye size={18} />}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                  <Eye size={18} />
+                </button>
+              }
             />
-            <button className="group flex w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[12px] font-bold text-black transition hover:bg-stone-250 focus:outline-none">
-              {isRegister ? 'Crear cuenta' : 'Ingresar'}
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+
+            {error && (
+              <p className="rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+                {error}
+              </p>
+            )}
+
+            <button
+              disabled={loading}
+              className="group flex w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[12px] font-bold text-black transition hover:bg-stone-250 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70">
+              {loading ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                <>
+                  {isRegister ? 'Crear cuenta' : 'Ingresar'}
+                  <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                </>
+              )}
             </button>
           </form>
 
@@ -90,9 +155,6 @@ export default function AuthPage({ mode }) {
               {isRegister ? 'Ingresá' : 'Registrate'}
             </Link>
           </p>
-          <div className="mt-6 rounded-lg border border-white/[.06] bg-white/[.025] px-4 py-2.5 text-center text-[10px] text-stone-600">
-            Acceso demostrativo: cualquier dato permite ingresar.
-          </div>
         </div>
       </section>
     </main>
