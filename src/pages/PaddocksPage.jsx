@@ -1,22 +1,54 @@
-import { LandPlot, AlertTriangle, CheckCircle2, LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
+import { LandPlot, AlertTriangle, CheckCircle2, LoaderCircle, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { withAnimalCounts } from '../services/mappers.js';
+import { createCattleForPaddock } from '../services/cattleService.js';
+import AddCattleModal from '../components/AddCattleModal.jsx';
 
 export default function PaddocksPage() {
   const { estanciaId } = useAuth();
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
-  const { cattle, loading: cattleLoading } = useCattle(estanciaId);
+  const { cattle, loading: cattleLoading, reload: reloadCattle } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
   const { dataById, loading: analyticsLoading } = usePaddockAnalytics(paddocksWithCounts);
 
   const loading = paddocksLoading || cattleLoading;
 
+  const [addingToPaddock, setAddingToPaddock] = useState(null);
+  const [mutating, setMutating] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  async function handleAddCattle({ animals }) {
+    if (!addingToPaddock) return;
+    setMutating(true);
+    setActionError('');
+    try {
+      for (const payload of animals) {
+        await createCattleForPaddock(addingToPaddock.id, payload);
+      }
+      await reloadCattle();
+      setAddingToPaddock(null);
+    } catch (err) {
+      setActionError(err.message || 'No se pudo agregar el ganado.');
+    } finally {
+      setMutating(false);
+    }
+  }
+
   return (
     <div className="min-h-full px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+      <AddCattleModal
+        isOpen={Boolean(addingToPaddock)}
+        onClose={() => setAddingToPaddock(null)}
+        onAdd={handleAddCattle}
+        existingCaravanas={cattle.map((c) => c.caravana)}
+        lockedPaddockLabel={addingToPaddock?.name}
+      />
+
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-white">Potreros</h1>
@@ -31,9 +63,9 @@ export default function PaddocksPage() {
         </Link>
       </header>
 
-      {paddocksError && (
+      {(paddocksError || actionError) && (
         <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
-          {paddocksError}
+          {paddocksError || actionError}
         </p>
       )}
 
@@ -114,6 +146,13 @@ export default function PaddocksPage() {
                       <span>{details.ok}</span>
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setAddingToPaddock(paddock)}
+                    disabled={mutating}
+                    className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50">
+                    <Plus size={12} /> Agregar ganado
+                  </button>
                 </div>
               </article>
             );

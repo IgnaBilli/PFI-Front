@@ -20,6 +20,7 @@ export default function AddCattleModal({
   paddocks = [],
   existingCaravanas = [],
   lockedPaddockLabel = null,
+  variant = 'modal',
 }) {
   const [category, setCategory] = useState('VACA');
   const [sex, setSex] = useState('M');
@@ -119,26 +120,25 @@ export default function AddCattleModal({
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/[.08] pb-4">
-          <div className="flex items-center gap-2">
-            <div>
-              <h3 className="font-display text-lg text-white">Agregar Ganado</h3>
-              <p className="text-[11px] text-stone-500">
-                Ingresá los datos del rodeo a incorporar.
-              </p>
-            </div>
+  const content = (
+    <>
+      <div className="flex items-center justify-between border-b border-white/[.08] pb-4">
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="font-display text-lg text-white">Agregar Ganado</h3>
+            <p className="text-[11px] text-stone-500">
+              Ingresá los datos del rodeo a incorporar.
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-stone-500 hover:bg-white/[.05] hover:text-white">
-            <X size={16} />
-          </button>
         </div>
+        <button
+          onClick={onClose}
+          className="rounded-lg p-1.5 text-stone-500 hover:bg-white/[.05] hover:text-white">
+          <X size={16} />
+        </button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-[12px]">
+      <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-[12px]">
           {lockedPaddockLabel ? (
             <div className="rounded-lg border border-white/[.06] bg-white/[.03] px-3.5 py-2.5 text-[11px] text-stone-400">
               Se asignará al potrero <strong className="text-white">{lockedPaddockLabel}</strong> al
@@ -297,6 +297,17 @@ export default function AddCattleModal({
             </button>
           </div>
         </form>
+    </>
+  );
+
+  if (variant === 'inline') {
+    return <div className="text-stone-300">{content}</div>;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
+        {content}
       </div>
     </div>
   );

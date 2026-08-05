@@ -9,7 +9,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(getToken)
   const [user, setUser] = useState(getStoredUser)
   const [estancia, setEstancia] = useState(null)
-  const [estanciaStatus, setEstanciaStatus] = useState('idle') // idle | loading | ready | none
+  const [estanciaStatus, setEstanciaStatus] = useState('idle') // idle | loading | ready | none | error
 
   const refreshEstancia = useCallback(async () => {
     setEstanciaStatus('loading')
@@ -19,12 +19,16 @@ export function AuthProvider({ children }) {
       setEstanciaStatus('ready')
       return data
     } catch (err) {
+      // Solo un 404 confirmado significa "todavía no creó una estancia".
+      // Cualquier otro error (red, CORS, 500) es indeterminado: no hay que
+      // mandar a un usuario ya onboardeado a /onboarding/estancia solo
+      // porque el pedido falló.
       if (err instanceof ApiError && err.status === 404) {
         setEstancia(null)
         setEstanciaStatus('none')
         return null
       }
-      setEstanciaStatus('none')
+      setEstanciaStatus('error')
       throw err
     }
   }, [])

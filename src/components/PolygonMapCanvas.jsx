@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { latLngBounds } from 'leaflet'
 import {
   CircleMarker,
   MapContainer,
@@ -5,6 +7,7 @@ import {
   Polyline,
   TileLayer,
   Tooltip,
+  useMap,
   useMapEvents,
 } from 'react-leaflet'
 import { distanceMeters, formatDistance, midpoint } from '../utils/geo.js'
@@ -12,6 +15,35 @@ import { ARGENTINA_CENTER, COLORS } from '../utils/mapConstants.js'
 
 function MapClickHandler({ enabled, onAdd }) {
   useMapEvents({ click: ({ latlng }) => enabled && onAdd(latlng.lat, latlng.lng) })
+  return null
+}
+
+// Acota el pan/zoom a la superficie de `restrictTo` (p. ej. mientras se
+// edita un potrero puntual), para que el mapa no muestre más que esa
+// parcela. `JSON.stringify` como dependencia evita re-ajustar en cada
+// render por una nueva referencia de array con las mismas coordenadas.
+function BoundsRestrictor({ restrictTo, defaultMinZoom }) {
+  const map = useMap()
+  const key = restrictTo && restrictTo.length >= 3 ? JSON.stringify(restrictTo) : null
+
+  useEffect(() => {
+    if (!key) {
+      map.setMaxBounds(null)
+      map.setMinZoom(defaultMinZoom)
+      return
+    }
+    const padding = [50, 50]
+    const bounds = latLngBounds(restrictTo.map(({ latitude, longitude }) => [latitude, longitude]))
+    // El zoom con el que fitBounds encuadra la superficie es también el
+    // límite de alejamiento: sin esto, setMaxBounds sólo frena el paneo,
+    // pero se puede seguir haciendo zoom out y ver más allá del potrero.
+    const fitZoom = map.getBoundsZoom(bounds, false, padding)
+    map.fitBounds(bounds, { padding })
+    map.setMaxBounds(bounds.pad(0.25))
+    map.setMinZoom(fitZoom)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, map, defaultMinZoom])
+
   return null
 }
 
@@ -23,15 +55,17 @@ export default function PolygonMapCanvas({
   existingPolygons = [],
   outlinePolygon = null,
   selectedPlace = null,
+  restrictTo = null,
   center = ARGENTINA_CENTER,
   zoom = 5,
+  minZoom = 3,
   className = '',
 }) {
   return (
     <MapContainer
       center={center}
       zoom={zoom}
-      minZoom={3}
+      minZoom={minZoom}
       maxZoom={21}
       ref={mapRef}
       className={`h-full w-full ${isDrawing ? 'drawing-map' : ''} ${className}`}
@@ -43,6 +77,7 @@ export default function PolygonMapCanvas({
         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       />
       <MapClickHandler enabled={isDrawing} onAdd={onMapClick} />
+      <BoundsRestrictor restrictTo={restrictTo} defaultMinZoom={minZoom} />
 
       {outlinePolygon && outlinePolygon.coordinates?.length >= 3 && (
         <Polygon

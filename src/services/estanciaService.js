@@ -7,3 +7,7 @@ export function getEstancia() {
 export function createEstancia({ nombre, geom }) {
   return api.post('/estancia', { nombre, geom })
 }
+
+export function updateEstancia(estanciaId, { geom }) {
+  return api.patch(`/estancia/${estanciaId}`, { geom })
+}
