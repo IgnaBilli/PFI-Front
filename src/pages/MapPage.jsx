@@ -1,12 +1,10 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Check,
-  Crosshair,
   LandPlot,
   LoaderCircle,
   MapPin,
   Pencil,
-  Play,
   Plus,
   RotateCcw,
   Save,
@@ -17,7 +15,7 @@ import {
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { areaHectares } from '../utils/geo.js';
+import { areaHectares, isSimplePolygon } from '../utils/geo.js';
 import { COLORS } from '../utils/mapConstants.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
@@ -29,6 +27,7 @@ import { updateEstancia } from '../services/estanciaService.js';
 import { ApiError } from '../services/api.js';
 
 export default function MapPage() {
+  const navigate = useNavigate();
   const { estanciaId, estancia, refreshEstancia } = useAuth();
   const { paddocks, loading: paddocksLoading, reload: reloadPaddocks } = usePaddocks(estanciaId);
   const { cattle, reload: reloadCattle } = useCattle(estanciaId);
@@ -36,8 +35,6 @@ export default function MapPage() {
 
   const [name, setName] = useState('');
   const [vertices, setVertices] = useState([]);
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [panelOpen, setPanelOpen] = useState(false);
@@ -49,6 +46,8 @@ export default function MapPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editMode, setEditMode] = useState('potrero'); // 'potrero' | 'estancia'
+  const [estanciaMode, setEstanciaMode] = useState('view'); // 'view' | 'edit' (solo aplica si editMode === 'estancia')
+  const [potreroMode, setPotreroMode] = useState('home'); // 'home' | 'draw' (solo aplica si editMode === 'potrero' && !editingId)
   const [mutating, setMutating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [addingToPaddock, setAddingToPaddock] = useState(null);
@@ -90,31 +89,6 @@ export default function MapPage() {
     setError('');
   }
 
-  function handleCoordinateSubmit(event) {
-    event.preventDefault();
-    if (!isDrawing) {
-      setError('Iniciá el trazado antes de agregar coordenadas.');
-      return;
-    }
-    const lat = Number(latitude);
-    const lng = Number(longitude);
-    if (
-      !Number.isFinite(lat) ||
-      lat < -90 ||
-      lat > 90 ||
-      !Number.isFinite(lng) ||
-      lng < -180 ||
-      lng > 180
-    ) {
-      setError('Ingresá coordenadas válidas.');
-      return;
-    }
-    addVertex(lat, lng);
-    setLatitude('');
-    setLongitude('');
-    mapRef.current?.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 13));
-  }
-
   async function savePaddock() {
     if (!name.trim()) {
       setError('Asignale un nombre al potrero.');
@@ -132,8 +106,8 @@ export default function MapPage() {
       setError('Revisá las coordenadas de los vértices.');
       return;
     }
-    if (isDrawing) {
-      setError('Terminá el trazado antes de guardar.');
+    if (!isSimplePolygon(vertices)) {
+      setError('El polígono se cruza a sí mismo. Ajustá los vértices antes de guardar.');
       return;
     }
 
@@ -164,26 +138,13 @@ export default function MapPage() {
     }
   }
 
-  function startDrawing() {
-    if (!editingId && editMode !== 'estancia') setVertices([]);
-    setIsDrawing(true);
-    setError('');
-  }
-
-  function finishDrawing() {
-    if (vertices.length < 3) {
-      setError('Marcá al menos 3 vértices para terminar.');
-      return;
-    }
-    setIsDrawing(false);
-    setError('');
-  }
-
   function editPaddock(paddock) {
+    setEditMode('potrero');
+    setPotreroMode('home');
     setEditingId(paddock.id);
     setName(paddock.name);
     setVertices(paddock.coordinates.map((coordinate) => ({ ...coordinate })));
-    setIsDrawing(false);
+    setIsDrawing(true);
     setError('');
     focusPaddock(paddock);
     setPanelOpen(true);
@@ -197,12 +158,33 @@ export default function MapPage() {
     setError('');
   }
 
-  function startEstanciaEdit() {
-    if (!outlinePolygon) return;
-    setEditMode('estancia');
+  function openDrawPaddock() {
+    setEditMode('potrero');
+    setPotreroMode('draw');
     setEditingId(null);
     setName('');
-    setVertices(outlinePolygon.coordinates.map((coordinate) => ({ ...coordinate })));
+    setVertices([]);
+    setIsDrawing(true);
+    setError('');
+    setActionError('');
+  }
+
+  function cancelDrawPaddock() {
+    setPotreroMode('home');
+    setName('');
+    setVertices([]);
+    setIsDrawing(false);
+    setError('');
+  }
+
+  function viewEstancia() {
+    if (!outlinePolygon) return;
+    setEditMode('estancia');
+    setEstanciaMode('view');
+    setPotreroMode('home');
+    setEditingId(null);
+    setName('');
+    setVertices([]);
     setIsDrawing(false);
     setError('');
     setActionError('');
@@ -211,8 +193,29 @@ export default function MapPage() {
     setPanelOpen(false);
   }
 
-  function cancelEstanciaEdit() {
+  function startEstanciaEdit() {
+    if (!outlinePolygon) return;
+    setEditMode('estancia');
+    setEstanciaMode('edit');
+    setEditingId(null);
+    setName('');
+    setVertices(outlinePolygon.coordinates.map((coordinate) => ({ ...coordinate })));
+    setIsDrawing(true);
+    setError('');
+    setActionError('');
+    const bounds = outlinePolygon.coordinates.map(({ latitude: lat, longitude: lng }) => [lat, lng]);
+    mapRef.current?.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+    setPanelOpen(false);
+  }
+
+  function closeEstanciaView() {
     setEditMode('potrero');
+    setEstanciaMode('view');
+    setPotreroMode('home');
+  }
+
+  function cancelEstanciaEdit() {
+    setEstanciaMode('view');
     setVertices([]);
     setIsDrawing(false);
     setError('');
@@ -231,8 +234,8 @@ export default function MapPage() {
       setError('Revisá las coordenadas de los vértices.');
       return;
     }
-    if (isDrawing) {
-      setError('Terminá el trazado antes de guardar.');
+    if (!isSimplePolygon(vertices)) {
+      setError('El polígono se cruza a sí mismo. Ajustá los vértices antes de guardar.');
       return;
     }
 
@@ -262,6 +265,14 @@ export default function MapPage() {
     setVertices((current) =>
       current.map((vertex, itemIndex) =>
         itemIndex === index ? { ...vertex, [field]: number } : vertex
+      )
+    );
+  }
+
+  function moveVertex(index, lat, lng) {
+    setVertices((current) =>
+      current.map((vertex, itemIndex) =>
+        itemIndex === index ? { latitude: lat, longitude: lng } : vertex
       )
     );
   }
@@ -349,6 +360,8 @@ export default function MapPage() {
     ? { coordinates: geoJsonPolygonToCoords(estancia.geom), label: estancia.nombre }
     : null;
 
+  const polygonIsSimple = isSimplePolygon(vertices);
+
   const existingPolygons = paddocksWithCounts
     .filter((paddock) => paddock.id !== editingId)
     .map((paddock, index) => ({
@@ -389,7 +402,7 @@ export default function MapPage() {
         </span>
       </button>
       <aside
-        className={`absolute inset-y-0 left-0 z-[1002] w-[min(90vw,315px)] overflow-y-auto border-r border-white/[.06] bg-[#0f0f11] p-5 text-stone-300 shadow-2xl transition-transform lg:relative lg:z-auto lg:w-[315px] lg:shrink-0 lg:translate-x-0 lg:shadow-none ${panelOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        className={`absolute inset-y-0 left-0 z-[1002] ${addingToPaddock ? 'w-[min(92vw,560px)] lg:w-[560px]' : 'w-[min(90vw,315px)] lg:w-[315px]'} overflow-y-auto border-r border-white/[.06] bg-[#0f0f11] p-5 text-stone-300 shadow-2xl transition-transform lg:relative lg:z-auto lg:shrink-0 lg:translate-x-0 lg:shadow-none ${panelOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <button
           onClick={() => setPanelOpen(false)}
           className="absolute right-4 top-4 grid size-8 place-items-center rounded-lg bg-white/[.04] text-stone-500 lg:hidden">
@@ -409,41 +422,69 @@ export default function MapPage() {
             onClose={() => setAddingToPaddock(null)}
             onAdd={handleAddCattleToPaddock}
             existingCaravanas={cattle.map((c) => c.caravana)}
+            cattle={cattle}
+            lockedPaddockId={addingToPaddock.id}
             lockedPaddockLabel={addingToPaddock.name}
           />
         ) : (
         <>
         <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">
-          {editMode === 'estancia' ? 'Límite de la estancia' : editingId ? 'Edición de potrero' : 'Mapa satelital'}
+          {editMode === 'estancia'
+            ? estanciaMode === 'edit'
+              ? 'Límite de la estancia'
+              : 'Tu estancia'
+            : editingId
+              ? 'Edición de potrero'
+              : 'Mapa satelital'}
         </p>
         <div className="flex items-center justify-between">
           <h1 className="mt-1 font-display text-2xl text-white">
-            {editMode === 'estancia' ? 'Editar límite' : editingId ? 'Editar potrero' : 'Dibujar potrero'}
+            {editMode === 'estancia'
+              ? estanciaMode === 'edit'
+                ? 'Editar límite'
+                : estancia?.nombre || 'Estancia'
+              : editingId
+                ? 'Editar potrero'
+                : potreroMode === 'draw'
+                  ? 'Dibujar potrero'
+                  : 'Tus potreros'}
           </h1>
-          {(editingId || editMode === 'estancia') && (
+          {(editingId || editMode === 'estancia' || (editMode === 'potrero' && potreroMode === 'draw')) && (
             <button
-              onClick={editMode === 'estancia' ? cancelEstanciaEdit : cancelEdit}
+              onClick={
+                editMode === 'estancia'
+                  ? estanciaMode === 'edit'
+                    ? cancelEstanciaEdit
+                    : closeEstanciaView
+                  : editingId
+                    ? cancelEdit
+                    : cancelDrawPaddock
+              }
               className="mt-1 text-[10px] font-bold text-stone-500 hover:text-white">
-              Cancelar
+              {editMode === 'estancia' && estanciaMode === 'view' ? 'Cerrar' : 'Cancelar'}
             </button>
           )}
         </div>
         <p className="mt-1 text-[11px] leading-4 text-stone-600 font-medium">
           {editMode === 'estancia'
-            ? 'Modificá el trazado del límite general de la estancia.'
-            : 'Iniciá el trazado y marcá los vértices sobre el mapa de forma simple.'}
+            ? estanciaMode === 'edit'
+              ? 'Modificá el trazado del límite general de la estancia.'
+              : 'Información general de tu estancia.'
+            : editMode === 'potrero' && !editingId && potreroMode === 'home'
+              ? 'Elegí un potrero de la lista, o entrá a tu estancia para dibujar uno nuevo.'
+              : 'Iniciá el trazado y marcá los vértices sobre el mapa de forma simple.'}
         </p>
 
-        {editMode === 'potrero' && !editingId && outlinePolygon && (
+        {editMode === 'potrero' && !editingId && potreroMode === 'home' && outlinePolygon && (
           <button
             type="button"
-            onClick={startEstanciaEdit}
+            onClick={viewEstancia}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.03] py-2.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06]">
-            <LandPlot size={13} /> Editar límite de estancia
+            <LandPlot size={13} /> Ver estancia
           </button>
         )}
 
-        {editMode === 'potrero' && (
+        {editMode === 'potrero' && (editingId || potreroMode === 'draw') && (
           <div className="mt-5 space-y-3">
             <div>
               <span className="text-[10px] font-bold text-stone-400">Nombre del Potrero</span>
@@ -463,64 +504,39 @@ export default function MapPage() {
           </div>
         )}
 
-        {!isDrawing ? (
-          <button
-            onClick={startDrawing}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-stone-700 bg-stone-800 py-3 text-[12px] font-bold text-stone-200 hover:bg-stone-700">
-            <Play size={14} fill="currentColor" />{' '}
-            {editingId || editMode === 'estancia' ? 'Modificar trazado' : 'Iniciar trazado'}
-          </button>
-        ) : (
-          <button
-            onClick={finishDrawing}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black hover:bg-stone-200">
-            <Check size={14} /> Terminar trazado
-          </button>
-        )}
-        <div
-          className={`mt-2.5 flex items-center gap-2 rounded-md px-3 py-2 text-[10px] ${isDrawing ? 'bg-stone-500/10 text-stone-200' : 'bg-white/[.025] text-stone-600'}`}>
-          <span
-            className={`size-2 rounded-full ${isDrawing ? 'animate-pulse bg-white' : 'bg-stone-700'}`}
-          />
-          {isDrawing
-            ? 'Modo trazado activo: hacé clic sobre el mapa para conectar líneas'
-            : 'El mapa está en modo navegación'}
+        {editMode === 'estancia' && estanciaMode === 'view' ? (
+          <div className="mt-5 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-white/[.06] bg-white/[.03] p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Superficie</p>
+                <p className="mt-1 text-[15px] font-bold text-white">
+                  {areaHectares(outlinePolygon?.coordinates ?? []).toFixed(2)} ha
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/[.06] bg-white/[.03] p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Potreros</p>
+                <p className="mt-1 text-[15px] font-bold text-white">{paddocksWithCounts.length}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={startEstanciaEdit}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black hover:bg-stone-200">
+              <Pencil size={14} /> Editar límite
+            </button>
+            <button
+              type="button"
+              onClick={openDrawPaddock}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[.03] py-3 text-[12px] font-bold text-stone-300 hover:bg-white/[.06]">
+              <Plus size={14} /> Dibujar potrero
+            </button>
+          </div>
+        ) : editMode === 'potrero' && !editingId && potreroMode === 'home' ? null : (
+        <>
+        <div className="mt-4 flex items-center gap-2 rounded-md bg-stone-500/10 px-3 py-2 text-[10px] text-stone-200">
+          <span className="size-2 shrink-0 animate-pulse rounded-full bg-white" />
+          Hacé clic sobre el mapa para marcar cada vértice. Arrastrá los puntos para ajustarlos.
         </div>
-
-        <form
-          onSubmit={handleCoordinateSubmit}
-          className={`mt-4 rounded-lg border border-white/[.05] bg-white/[.025] p-3.5 ${!isDrawing ? 'opacity-45' : ''}`}>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-stone-400">
-            <Crosshair size={14} /> Agregar coordenada exacta
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              disabled={!isDrawing}
-              value={latitude}
-              onChange={(event) => setLatitude(event.target.value)}
-              type="number"
-              step="any"
-              placeholder="Latitud"
-              aria-label="Latitud"
-              className="min-w-0 rounded-md border border-white/[.07] bg-[#0b0b0c] px-3 py-2.5 text-[11px] text-white outline-none focus:border-stone-500"
-            />
-            <input
-              disabled={!isDrawing}
-              value={longitude}
-              onChange={(event) => setLongitude(event.target.value)}
-              type="number"
-              step="any"
-              placeholder="Longitud"
-              aria-label="Longitud"
-              className="min-w-0 rounded-md border border-white/[.07] bg-[#0b0b0c] px-3 py-2.5 text-[11px] text-white outline-none focus:border-stone-500"
-            />
-          </div>
-          <button
-            disabled={!isDrawing}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-white/[.07] bg-white/[.04] py-2.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.07] disabled:cursor-not-allowed">
-            <Plus size={13} /> Agregar vértice
-          </button>
-        </form>
 
         <div className="mt-5 flex items-center justify-between">
           <p className="text-[11px] font-bold text-stone-400">
@@ -584,6 +600,13 @@ export default function MapPage() {
             {error}
           </p>
         )}
+        {vertices.length >= 3 && !polygonIsSimple && (
+          <p
+            role="alert"
+            className="mt-3.5 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-400">
+            El polígono se cruza a sí mismo. Arrastrá los vértices para corregirlo antes de guardar.
+          </p>
+        )}
         {vertices.length >= 3 && (
           <div className="mt-3.5 flex items-center justify-between rounded-md bg-stone-800 px-3.5 py-2.5 text-[11px]">
             <span className="text-stone-400">Superficie estimada</span>
@@ -592,11 +615,13 @@ export default function MapPage() {
         )}
         <button
           onClick={editMode === 'estancia' ? saveEstanciaBoundary : savePaddock}
-          disabled={mutating}
+          disabled={mutating || (vertices.length >= 3 && !polygonIsSimple)}
           className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black transition hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-60">
           {mutating ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />}{' '}
           {editMode === 'estancia' ? 'Guardar límite' : editingId ? 'Guardar cambios' : 'Guardar potrero'}
         </button>
+        </>
+        )}
 
         <div className="my-6 h-px bg-white/[.06]" />
         <div className="flex items-center justify-between">
@@ -634,7 +659,7 @@ export default function MapPage() {
                 </button>
                 <button
                   onClick={() => openAddCattle(paddock)}
-                  disabled={mutating || editMode === 'estancia'}
+                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Agregar ganado a ${paddock.name}`}
                   title="Agregar ganado"
                   className="grid size-8 place-items-center rounded-md text-stone-500 hover:bg-emerald-500/10 hover:text-emerald-400 disabled:opacity-50">
@@ -642,14 +667,14 @@ export default function MapPage() {
                 </button>
                 <button
                   onClick={() => editPaddock(paddock)}
-                  disabled={mutating || editMode === 'estancia'}
+                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Editar ${paddock.name}`}
                   className="grid size-8 place-items-center rounded-md text-stone-500 hover:bg-stone-850 hover:text-white disabled:opacity-50">
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDeletePaddock(paddock.id)}
-                  disabled={mutating || editMode === 'estancia'}
+                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Eliminar ${paddock.name}`}
                   className="grid size-8 place-items-center rounded-md text-stone-600 hover:bg-red-950/40 hover:text-red-400 disabled:opacity-50">
                   <Trash2 size={15} />
@@ -720,14 +745,17 @@ export default function MapPage() {
           onMapClick={addVertex}
           vertices={vertices}
           existingPolygons={existingPolygons}
-          outlinePolygon={editMode === 'estancia' ? null : outlinePolygon}
+          outlinePolygon={editMode === 'estancia' && estanciaMode === 'edit' ? null : outlinePolygon}
           selectedPlace={selectedPlace}
           restrictTo={restrictTo}
+          invalid={vertices.length >= 3 && !polygonIsSimple}
+          onVertexDrag={moveVertex}
+          onPolygonClick={isDrawing ? null : (paddockId) => navigate(`/potreros/${paddockId}`)}
         />
         <div className="pointer-events-none absolute bottom-6 left-1/2 z-[500] -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#0f0f11]/90 px-3.5 py-2.5 text-[10px] font-semibold text-stone-300 shadow-xl backdrop-blur">
           {isDrawing
             ? 'Hacé clic para marcar cada vértice en el mapa'
-            : 'Iniciá un trazado desde el panel lateral'}
+            : 'Elegí "Dibujar potrero" o "Editar límite" en el panel lateral'}
         </div>
       </section>
     </main>

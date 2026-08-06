@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { latLngBounds } from 'leaflet'
+import { DomEvent, divIcon, latLngBounds } from 'leaflet'
 import {
   CircleMarker,
   MapContainer,
+  Marker,
   Polygon,
   Polyline,
   TileLayer,
@@ -12,6 +13,13 @@ import {
 } from 'react-leaflet'
 import { distanceMeters, formatDistance, midpoint } from '../utils/geo.js'
 import { ARGENTINA_CENTER, COLORS } from '../utils/mapConstants.js'
+
+const VERTEX_ICON = divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;border-radius:50%;background:#ffffff;border:2px solid #0b0b0c;box-shadow:0 0 0 1px rgba(0,0,0,.35);cursor:grab;"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+})
 
 function MapClickHandler({ enabled, onAdd }) {
   useMapEvents({ click: ({ latlng }) => enabled && onAdd(latlng.lat, latlng.lng) })
@@ -56,6 +64,9 @@ export default function PolygonMapCanvas({
   outlinePolygon = null,
   selectedPlace = null,
   restrictTo = null,
+  invalid = false,
+  onVertexDrag = null,
+  onPolygonClick = null,
   center = ARGENTINA_CENTER,
   zoom = 5,
   minZoom = 3,
@@ -105,7 +116,18 @@ export default function PolygonMapCanvas({
             fillColor: polygon.color ?? COLORS[index % COLORS.length],
             fillOpacity: 0.15,
             weight: 2.5,
-          }}>
+            className: onPolygonClick ? 'cursor-pointer' : '',
+          }}
+          eventHandlers={
+            onPolygonClick
+              ? {
+                  click: (event) => {
+                    DomEvent.stopPropagation(event);
+                    onPolygonClick(polygon.id);
+                  },
+                }
+              : undefined
+          }>
           {polygon.label && (
             <Tooltip sticky className="paddock-label">
               {polygon.label}
@@ -123,7 +145,11 @@ export default function PolygonMapCanvas({
       {vertices.length >= 3 && (
         <Polygon
           positions={vertices.map(({ latitude, longitude }) => [latitude, longitude])}
-          pathOptions={{ color: '#ffffff', fillColor: '#888888', fillOpacity: 0.25, weight: 2 }}
+          pathOptions={
+            invalid
+              ? { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.25, weight: 2.5 }
+              : { color: '#ffffff', fillColor: '#888888', fillOpacity: 0.25, weight: 2 }
+          }
         />
       )}
       {vertices.slice(1).map((vertex, index) => (
@@ -138,16 +164,26 @@ export default function PolygonMapCanvas({
         </CircleMarker>
       ))}
       {vertices.map(({ latitude, longitude }, index) => (
-        <CircleMarker
-          key={`${latitude}-${longitude}-${index}`}
-          center={[latitude, longitude]}
-          radius={7}
-          pathOptions={{ color: '#0b0b0c', fillColor: '#ffffff', fillOpacity: 1, weight: 2 }}>
+        <Marker
+          key={`vertex-${index}`}
+          position={[latitude, longitude]}
+          icon={VERTEX_ICON}
+          draggable={Boolean(onVertexDrag)}
+          eventHandlers={
+            onVertexDrag
+              ? {
+                  dragend: (event) => {
+                    const { lat, lng } = event.target.getLatLng()
+                    onVertexDrag(index, lat, lng)
+                  },
+                }
+              : undefined
+          }>
           <Tooltip
             permanent
             direction="bottom"
             className="vertex-label">{`${index + 1}: [${latitude.toFixed(5)}, ${longitude.toFixed(5)}]`}</Tooltip>
-        </CircleMarker>
+        </Marker>
       ))}
       {selectedPlace && (
         <CircleMarker

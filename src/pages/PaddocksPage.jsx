@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LandPlot, AlertTriangle, CheckCircle2, LoaderCircle, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
@@ -10,6 +10,7 @@ import { createCattleForPaddock } from '../services/cattleService.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 
 export default function PaddocksPage() {
+  const navigate = useNavigate();
   const { estanciaId } = useAuth();
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
   const { cattle, loading: cattleLoading, reload: reloadCattle } = useCattle(estanciaId);
@@ -46,6 +47,8 @@ export default function PaddocksPage() {
         onClose={() => setAddingToPaddock(null)}
         onAdd={handleAddCattle}
         existingCaravanas={cattle.map((c) => c.caravana)}
+        cattle={cattle}
+        lockedPaddockId={addingToPaddock?.id}
         lockedPaddockLabel={addingToPaddock?.name}
       />
 
@@ -85,7 +88,13 @@ export default function PaddocksPage() {
             return (
               <article
                 key={paddock.id}
-                className="rounded-xl border border-white/[.05] bg-[#161619] p-5 text-[11px] text-stone-400 flex flex-col justify-between min-h-[180px]">
+                onClick={() => navigate(`/potreros/${paddock.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') navigate(`/potreros/${paddock.id}`);
+                }}
+                className="cursor-pointer rounded-xl border border-white/[.05] bg-[#161619] p-5 text-[11px] text-stone-400 flex flex-col justify-between min-h-[180px] hover:border-white/[.12] transition-colors">
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
@@ -148,7 +157,10 @@ export default function PaddocksPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setAddingToPaddock(paddock)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAddingToPaddock(paddock);
+                    }}
                     disabled={mutating}
                     className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50">
                     <Plus size={12} /> Agregar ganado

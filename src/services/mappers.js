@@ -15,6 +15,24 @@ export const CATEGORY_OPTIONS = Object.entries(CATEGORY_API_TO_UI).map(([value, 
   label,
 }))
 
+// Sexo implícito por categoría: Vaca/Vaquillona son siempre hembra, Novillo/Toro
+// siempre macho. TERNERO queda afuera a propósito (Ternero/Ternera admite los dos).
+export const CATEGORY_SEX = {
+  VACA: 'F',
+  VAQUILLONA: 'F',
+  NOVILLO: 'M',
+  TORO: 'M',
+}
+
+// Rango de peso vivo observado por categoría (kg), usado para validar el alta de ganado.
+export const WEIGHT_RANGE_BY_CATEGORY = {
+  VACA: { min: 79.1, max: 525.2 },
+  VAQUILLONA: { min: 54.6, max: 412.8 },
+  NOVILLO: { min: 59.5, max: 278.9 },
+  TORO: { min: 97.0, max: 595.5 },
+  TERNERO: { min: 19.6, max: 235.9 },
+}
+
 export function parseWeightKg(text) {
   if (text === null || text === undefined) return null
   const match = String(text).replace(',', '.').match(/-?\d+(\.\d+)?/)

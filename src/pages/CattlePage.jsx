@@ -245,6 +245,7 @@ export default function CattlePage() {
         onAdd={handleAddCustomCattle}
         paddocks={paddocksWithCounts}
         existingCaravanas={cattle.map((c) => c.caravana)}
+        cattle={cattle}
       />
 
       <ConfirmDialog
