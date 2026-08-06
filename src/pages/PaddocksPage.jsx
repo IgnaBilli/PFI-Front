@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LandPlot, AlertTriangle, CheckCircle2, LoaderCircle, Plus } from 'lucide-react';
+import { LandPlot, AlertTriangle, Beef, CheckCircle2, LoaderCircle, Plus, Sprout } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
@@ -7,7 +7,32 @@ import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnal
 import { useAuth } from '../context/AuthContext.jsx';
 import { withAnimalCounts } from '../services/mappers.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
+import { polygonToViewBoxPoints } from '../utils/geo.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
+
+// Silueta real del potrero en SVG (sin depender de tiles de mapa): conserva
+// la forma real de sus coordenadas, coloreada según el estado de pasto.
+function PaddockShapeIcon({ paddock, color }) {
+  const points = polygonToViewBoxPoints(paddock.coordinates);
+  return (
+    <div className="relative h-24 overflow-hidden" style={{ backgroundColor: '#0e140f' }}>
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(135deg, currentColor 0, currentColor 1px, transparent 1px, transparent 9px)',
+          color,
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#161619] via-transparent to-transparent" />
+      {points && (
+        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet">
+          <polygon points={points} fill={`${color}33`} stroke={color} strokeWidth="2" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
+}
 
 export default function PaddocksPage() {
   const navigate = useNavigate();
@@ -94,49 +119,53 @@ export default function PaddocksPage() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') navigate(`/potreros/${paddock.id}`);
                 }}
-                className="cursor-pointer rounded-xl border border-white/[.05] bg-[#161619] p-5 text-[11px] text-stone-400 flex flex-col justify-between min-h-[180px] hover:border-white/[.12] transition-colors">
+                className="group cursor-pointer overflow-hidden rounded-xl border border-white/[.05] bg-[#161619] text-[11px] text-stone-400 flex flex-col justify-between hover:border-white/[.15] transition-colors">
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-[13px] font-bold text-white leading-tight">
-                        {paddock.name}
-                      </h3>
-                      <p className="mt-0.5 text-stone-500 font-medium">{paddock.hectares.toFixed(0)} ha</p>
-                    </div>
+                  <div className="relative">
+                    <PaddockShapeIcon paddock={paddock} color={details.statusColor} />
                     <span
-                      className="rounded-full px-2 py-0.5 font-semibold text-[10px]"
+                      className="absolute right-2 top-2 rounded-full px-2 py-0.5 font-semibold text-[10px] shadow"
                       style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
                       {analyticsLoading ? '...' : details.status}
                     </span>
                   </div>
 
-                  <div className="mt-4 space-y-2.5">
-                    <div>
-                      <div className="flex justify-between">
-                        <span>Pasto disponible</span>
-                        <strong style={{ color: details.statusColor }}>{details.grass}</strong>
-                      </div>
-                      <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: details.load, backgroundColor: details.statusColor }}
-                        />
-                      </div>
-                    </div>
+                  <div className="px-5 pt-3.5">
+                    <h3 className="text-[13px] font-bold text-white leading-tight">{paddock.name}</h3>
+                    <p className="mt-0.5 flex items-center gap-1 text-stone-500 font-medium">
+                      <LandPlot size={11} /> {paddock.hectares.toFixed(0)} ha
+                    </p>
 
-                    <div className="flex justify-between items-center pt-1.5">
-                      <span className="flex items-center gap-1">
-                        <LandPlot size={13} className="text-stone-500" />
-                        <strong>{paddock.animals}</strong> cabezas
-                      </span>
-                      <span>
-                        Carga <strong style={{ color: details.loadColor }}>{details.load}</strong>
-                      </span>
+                    <div className="mt-4 space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Sprout size={13} className="text-stone-500" /> Pasto disponible
+                          </span>
+                          <strong style={{ color: details.statusColor }}>{details.grass}</strong>
+                        </div>
+                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: details.load, backgroundColor: details.statusColor }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-1.5">
+                        <span className="flex items-center gap-1.5">
+                          <Beef size={13} className="text-stone-500" />
+                          <strong className="text-stone-200">{paddock.animals}</strong> cabezas
+                        </span>
+                        <span>
+                          Carga <strong style={{ color: details.loadColor }}>{details.load}</strong>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4">
+                <div className="px-5 pb-5 pt-4">
                   {details.alert && (
                     <div className="flex items-center gap-1.5 rounded-lg bg-red-500/10 p-2 text-red-400 text-[10px] font-medium leading-normal">
                       <AlertTriangle size={13} className="shrink-0" />

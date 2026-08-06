@@ -6,6 +6,7 @@ import SummaryPage from './pages/SummaryPage.jsx';
 import CattlePage from './pages/CattlePage.jsx';
 import PaddocksPage from './pages/PaddocksPage.jsx';
 import PaddockDetailPage from './pages/PaddockDetailPage.jsx';
+import TrasladoPage from './pages/TrasladoPage.jsx';
 import OnboardingEstanciaPage from './pages/OnboardingEstanciaPage.jsx';
 import { RequireAuth, RequireEstancia, RequireNoEstancia } from './components/RouteGuards.jsx';
 
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/potreros" element={<PaddocksPage />} />
           <Route path="/potreros/:paddockId" element={<PaddockDetailPage />} />
           <Route path="/ganado" element={<CattlePage />} />
+          <Route path="/traslado" element={<TrasladoPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

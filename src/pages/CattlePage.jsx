@@ -1,5 +1,6 @@
-import { Beef, Search, SlidersHorizontal, Pencil, Check, X, Plus, Trash2, LoaderCircle } from 'lucide-react';
+import { Beef, Search, SlidersHorizontal, Pencil, Check, X, Plus, Trash2, LoaderCircle, ArrowLeftRight } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useCattle from '../hooks/useCattle.js';
 import usePaddocks from '../hooks/usePaddocks.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -36,6 +37,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function CattlePage() {
+  const navigate = useNavigate();
   const { estanciaId } = useAuth();
   const { cattle, loading: cattleLoading, error: cattleError, reload: reloadCattle } = useCattle(estanciaId);
   const { paddocks, loading: paddocksLoading, reload: reloadPaddocks } = usePaddocks(estanciaId);
@@ -335,6 +337,13 @@ export default function CattlePage() {
               disabled={!bulkCategory || mutating}
               className="rounded bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-400 disabled:opacity-50">
               Aplicar
+            </button>
+            <button
+              onClick={() => navigate('/traslado', { state: { animalIds: selectedIds } })}
+              disabled={mutating}
+              className="flex items-center gap-1 rounded bg-white/[.06] border border-white/[.08] px-3 py-1.5 text-[11px] font-bold text-stone-200 hover:bg-white/[.1] disabled:opacity-50"
+              title="Trasladar seleccionados">
+              <ArrowLeftRight size={13} /> Trasladar
             </button>
             <button
               onClick={() => setConfirmBulkDelete(true)}

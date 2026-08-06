@@ -27,28 +27,52 @@ function MapClickHandler({ enabled, onAdd }) {
 }
 
 // Acota el pan/zoom a la superficie de `restrictTo` (p. ej. mientras se
-// edita un potrero puntual), para que el mapa no muestre más que esa
-// parcela. `JSON.stringify` como dependencia evita re-ajustar en cada
-// render por una nueva referencia de array con las mismas coordenadas.
+// edita un potrero puntual, o en las miniaturas de solo lectura), para que
+// el mapa no muestre más que esa parcela. `JSON.stringify` como dependencia
+// evita re-ajustar en cada render por una nueva referencia de array con las
+// mismas coordenadas.
+//
+// Leaflet lee el tamaño del contenedor en el momento en que se monta, que en
+// tarjetas chicas de un grid puede no ser todavía el tamaño final (el commit
+// de React no espera el layout del navegador). Si se encuadra con ese tamaño
+// equivocado, el mapa queda mal centrado/zoomeado y ya no se corrige solo:
+// `invalidateSize()` por sí solo arregla el tamaño pero mantiene la vista
+// vieja. Por eso acá siempre se invalida el tamaño primero y recién después
+// se encuadra — y se repite con un ResizeObserver por si el contenedor
+// cambia más tarde.
 function BoundsRestrictor({ restrictTo, defaultMinZoom }) {
   const map = useMap()
   const key = restrictTo && restrictTo.length >= 3 ? JSON.stringify(restrictTo) : null
 
   useEffect(() => {
-    if (!key) {
-      map.setMaxBounds(null)
-      map.setMinZoom(defaultMinZoom)
-      return
+    function apply() {
+      map.invalidateSize()
+      if (!key) {
+        map.setMaxBounds(null)
+        map.setMinZoom(defaultMinZoom)
+        return
+      }
+      const padding = [50, 50]
+      const bounds = latLngBounds(restrictTo.map(({ latitude, longitude }) => [latitude, longitude]))
+      // El zoom con el que fitBounds encuadra la superficie es también el
+      // límite de alejamiento: sin esto, setMaxBounds sólo frena el paneo,
+      // pero se puede seguir haciendo zoom out y ver más allá del potrero.
+      const fitZoom = map.getBoundsZoom(bounds, false, padding)
+      map.fitBounds(bounds, { padding })
+      map.setMaxBounds(bounds.pad(0.25))
+      map.setMinZoom(fitZoom)
     }
-    const padding = [50, 50]
-    const bounds = latLngBounds(restrictTo.map(({ latitude, longitude }) => [latitude, longitude]))
-    // El zoom con el que fitBounds encuadra la superficie es también el
-    // límite de alejamiento: sin esto, setMaxBounds sólo frena el paneo,
-    // pero se puede seguir haciendo zoom out y ver más allá del potrero.
-    const fitZoom = map.getBoundsZoom(bounds, false, padding)
-    map.fitBounds(bounds, { padding })
-    map.setMaxBounds(bounds.pad(0.25))
-    map.setMinZoom(fitZoom)
+
+    const raf = requestAnimationFrame(apply)
+    let observer
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => apply())
+      observer.observe(map.getContainer())
+    }
+    return () => {
+      cancelAnimationFrame(raf)
+      if (observer) observer.disconnect()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, map, defaultMinZoom])
 
@@ -67,6 +91,7 @@ export default function PolygonMapCanvas({
   invalid = false,
   onVertexDrag = null,
   onPolygonClick = null,
+  interactive = true,
   center = ARGENTINA_CENTER,
   zoom = 5,
   minZoom = 3,
@@ -80,7 +105,14 @@ export default function PolygonMapCanvas({
       maxZoom={21}
       ref={mapRef}
       className={`h-full w-full ${isDrawing ? 'drawing-map' : ''} ${className}`}
-      zoomControl>
+      zoomControl={interactive}
+      dragging={interactive}
+      scrollWheelZoom={interactive}
+      doubleClickZoom={interactive}
+      touchZoom={interactive}
+      boxZoom={interactive}
+      keyboard={interactive}
+      attributionControl={interactive}>
       <TileLayer
         maxNativeZoom={19}
         maxZoom={21}

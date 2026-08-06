@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Satellite,
   Sun,
   Thermometer,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import usePaddocks from '../hooks/usePaddocks.js';
@@ -37,6 +38,22 @@ function formatShortDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+}
+
+function ToastNotification({ toast, onClose }) {
+  if (!toast) return null;
+  return (
+    <div className="animate-rise fixed right-4 top-4 z-[3000] flex w-[min(92vw,340px)] items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-[#161619] px-4 py-3.5 shadow-2xl">
+      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-400" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-bold text-white">{toast.title || 'Listo'}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-stone-400">{toast.message}</p>
+      </div>
+      <button onClick={onClose} className="shrink-0 text-stone-500 hover:text-white">
+        <X size={14} />
+      </button>
+    </div>
+  );
 }
 
 // Lectura orientativa (no un pronóstico) de temperatura/precipitación/humedad
@@ -285,6 +302,8 @@ function ForageTrendChart({ history, color }) {
 
 export default function PaddockDetailPage() {
   const { paddockId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const mapPreviewRef = useRef(null);
   const { estanciaId } = useAuth();
   const { paddocks, loading: paddocksLoading } = usePaddocks(estanciaId);
@@ -294,6 +313,21 @@ export default function PaddockDetailPage() {
 
   const { dataById, loading: analyticsLoading } = usePaddockAnalytics(paddock ? [paddock] : []);
   const entry = paddock ? dataById[paddock.id] : null;
+
+  const [toast, setToast] = useState(location.state?.toast ?? null);
+  useEffect(() => {
+    if (!location.state?.toast) return;
+    // Limpiamos el state de navegación para que un refresh o "atrás" no
+    // vuelva a mostrar el mismo toast.
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const [forageHistory, setForageHistory] = useState([]);
   useEffect(() => {
@@ -401,6 +435,7 @@ export default function PaddockDetailPage() {
   if (paddocksLoading || cattleLoading) {
     return (
       <div className="flex min-h-full items-center justify-center px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+        <ToastNotification toast={toast} onClose={() => setToast(null)} />
         <div className="flex items-center gap-2 text-[12px] text-stone-500">
           <LoaderCircle size={16} className="animate-spin" /> Cargando potrero...
         </div>
@@ -411,6 +446,7 @@ export default function PaddockDetailPage() {
   if (!paddock) {
     return (
       <div className="px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+        <ToastNotification toast={toast} onClose={() => setToast(null)} />
         <Link
           to="/potreros"
           className="inline-flex items-center gap-1 text-[11px] font-semibold text-stone-500 hover:text-white">
@@ -438,6 +474,7 @@ export default function PaddockDetailPage() {
 
   return (
     <div className="min-h-full px-4 pb-10 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+      <ToastNotification toast={toast} onClose={() => setToast(null)} />
       <AddCattleModal
         isOpen={addingCattle}
         onClose={() => setAddingCattle(false)}

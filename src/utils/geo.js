@@ -26,8 +26,64 @@ export function midpoint(a, b) {
   return [(a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2]
 }
 
+// Caja delimitadora de un polígono con un margen chico, para dibujar un
+// recuadro que lo encierre sin pegarse a sus bordes.
+export function boundingBox(coordinates, paddingDeg = 0.0006) {
+  const lats = coordinates.map((c) => c.latitude)
+  const lngs = coordinates.map((c) => c.longitude)
+  return [
+    [Math.min(...lats) - paddingDeg, Math.min(...lngs) - paddingDeg],
+    [Math.max(...lats) + paddingDeg, Math.max(...lngs) + paddingDeg],
+  ]
+}
+
+// Las 4 esquinas de la caja delimitadora, en el formato {latitude, longitude}
+// que espera `restrictTo` de PolygonMapCanvas (necesita >=3 puntos). Sirve
+// para encuadrar un mini-mapa mostrando más o menos contexto alrededor del
+// polígono según `paddingDeg`.
+export function paddedBoundsPoints(coordinates, paddingDeg = 0.0006) {
+  const [[minLat, minLng], [maxLat, maxLng]] = boundingBox(coordinates, paddingDeg)
+  return [
+    { latitude: minLat, longitude: minLng },
+    { latitude: minLat, longitude: maxLng },
+    { latitude: maxLat, longitude: maxLng },
+    { latitude: maxLat, longitude: minLng },
+  ]
+}
+
 export function formatDistance(meters) {
   return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`
+}
+
+// Proyecta un polígono real (lat/lng) a puntos "x,y" dentro de un viewBox
+// cuadrado, conservando su forma real (sin deformarla) y centrándolo con un
+// margen. Para dibujar la silueta del potrero en SVG sin depender de tiles
+// de mapa. La latitud se invierte porque el eje Y de SVG crece hacia abajo.
+export function polygonToViewBoxPoints(coordinates, viewSize = 100, paddingRatio = 0.14) {
+  if (!coordinates || coordinates.length === 0) return ''
+  const lats = coordinates.map((c) => c.latitude)
+  const lngs = coordinates.map((c) => c.longitude)
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs)
+  const maxLng = Math.max(...lngs)
+  const latRange = maxLat - minLat || 1
+  const lngRange = maxLng - minLng || 1
+  const pad = viewSize * paddingRatio
+  const available = viewSize - pad * 2
+  const scale = available / Math.max(latRange, lngRange)
+  const shapeW = lngRange * scale
+  const shapeH = latRange * scale
+  const offsetX = (viewSize - shapeW) / 2
+  const offsetY = (viewSize - shapeH) / 2
+
+  return coordinates
+    .map(({ latitude, longitude }) => {
+      const x = offsetX + (longitude - minLng) * scale
+      const y = offsetY + (maxLat - latitude) * scale
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
 }
 
 function orientation(p, q, r) {
