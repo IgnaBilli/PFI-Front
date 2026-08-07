@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowLeftRight,
   Calculator,
   CheckCircle2,
   Cloud,
@@ -31,14 +32,12 @@ import {
   fetchPaddockTraslados,
 } from '../services/analyticsService.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
+import { CATEGORY_COLORS, FALLBACK_CATEGORY_COLOR } from '../services/mappers.js';
+import { formatShortDate } from '../utils/format.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
-
-function formatShortDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-}
+import DonutChart from '../components/DonutChart.jsx';
+import TrendLineChart from '../components/TrendLineChart.jsx';
 
 function ToastNotification({ toast, onClose }) {
   if (!toast) return null;
@@ -100,203 +99,19 @@ function WeatherMetricRow({ icon: Icon, color, label, value, max, unit, decimals
   );
 }
 
-// Orden categórico fijo (nunca ciclado por índice) — paleta validada CVD-safe
-// del sistema de referencia, pasos "dark" (única superficie que usa la app).
-const CATEGORY_COLORS = {
-  Vaca: '#3987e5',
-  Vaquilla: '#d95926',
-  Novillo: '#199e70',
-  Toro: '#c98500',
-  'Ternero/Ternera': '#d55181',
-};
-const FALLBACK_CATEGORY_COLOR = '#898781';
-
-function polarToCartesian(cx, cy, r, angle) {
-  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-}
-
-function donutArcPath(cx, cy, rOuter, rInner, startAngle, endAngle) {
-  const startOuter = polarToCartesian(cx, cy, rOuter, startAngle);
-  const endOuter = polarToCartesian(cx, cy, rOuter, endAngle);
-  const startInner = polarToCartesian(cx, cy, rInner, endAngle);
-  const endInner = polarToCartesian(cx, cy, rInner, startAngle);
-  const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
-  return [
-    `M ${startOuter.x} ${startOuter.y}`,
-    `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${endOuter.x} ${endOuter.y}`,
-    `L ${startInner.x} ${startInner.y}`,
-    `A ${rInner} ${rInner} 0 ${largeArc} 0 ${endInner.x} ${endInner.y}`,
-    'Z',
-  ].join(' ');
-}
-
-function HerdCategoryDonut({ counts, total }) {
-  const [hoverKey, setHoverKey] = useState(null);
-
-  if (total === 0) {
-    return (
-      <p className="mt-3 rounded-lg border border-dashed border-white/[.08] px-4 py-8 text-center text-[11px] text-stone-600">
-        Sin animales asignados todavía.
-      </p>
-    );
-  }
-
-  const cx = 90;
-  const cy = 90;
-  const rOuter = 80;
-  const rInner = 52;
-  let cursor = -Math.PI / 2;
-  const segments = Object.entries(counts).map(([category, count]) => {
-    const fraction = count / total;
-    const startAngle = cursor;
-    const endAngle = cursor + fraction * Math.PI * 2;
-    cursor = endAngle;
-    return {
-      category,
-      count,
-      fraction,
-      startAngle,
-      endAngle,
-      color: CATEGORY_COLORS[category] || FALLBACK_CATEGORY_COLOR,
-    };
-  });
-
-  const hovered = segments.find((s) => s.category === hoverKey) || null;
-
-  return (
-    <div className="mt-3">
-      <div className="relative mx-auto w-fit">
-        <svg width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Distribución del rodeo por categoría">
-          {segments.map((s) => (
-            <path
-              key={s.category}
-              d={donutArcPath(cx, cy, rOuter, rInner, s.startAngle, s.endAngle)}
-              fill={s.color}
-              stroke="#161619"
-              strokeWidth={2}
-              opacity={hoverKey && hoverKey !== s.category ? 0.35 : 1}
-              style={{ cursor: 'pointer', transition: 'opacity .15s' }}
-              onMouseEnter={() => setHoverKey(s.category)}
-              onMouseLeave={() => setHoverKey((k) => (k === s.category ? null : k))}
-            />
-          ))}
-        </svg>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-[22px] font-bold text-white">{hovered ? hovered.count : total}</span>
-          <span className="max-w-[80px] truncate text-[9px] font-semibold uppercase tracking-wider text-stone-500">
-            {hovered ? hovered.category : 'Total'}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-1.5">
-        {segments.map((s) => (
-          <div
-            key={s.category}
-            className="flex items-center justify-between text-[11px] cursor-pointer"
-            onMouseEnter={() => setHoverKey(s.category)}
-            onMouseLeave={() => setHoverKey((k) => (k === s.category ? null : k))}>
-            <span className="flex items-center gap-1.5 text-stone-400">
-              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-              {s.category}
-            </span>
-            <strong className="text-stone-200">
-              {s.count} · {Math.round(s.fraction * 100)}%
-            </strong>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ForageTrendChart({ history, color }) {
-  const [hoverIndex, setHoverIndex] = useState(null);
-
   const points = history
     .map((h) => ({ t: new Date(h.fecha_calculo).getTime(), value: Number(h.kg_materia_seca_ha) }))
     .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.value));
 
-  if (points.length < 2) {
-    return (
-      <p className="mt-3 rounded-lg border border-dashed border-white/[.08] px-4 py-6 text-center text-[11px] text-stone-600">
-        Todavía no hay suficiente histórico para graficar la evolución.
-      </p>
-    );
-  }
-
-  const width = 600;
-  const height = 200;
-  const padding = { top: 12, right: 12, bottom: 22, left: 38 };
-  const innerW = width - padding.left - padding.right;
-  const innerH = height - padding.top - padding.bottom;
-
-  const minT = points[0].t;
-  const maxT = points[points.length - 1].t;
-  const maxValue = Math.max(...points.map((p) => p.value), 1);
-
-  const x = (t) => padding.left + (maxT === minT ? innerW / 2 : ((t - minT) / (maxT - minT)) * innerW);
-  const y = (v) => padding.top + innerH - (v / maxValue) * innerH;
-
-  const linePath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.t).toFixed(1)} ${y(p.value).toFixed(1)}`)
-    .join(' ');
-  const areaPath =
-    `${linePath} L ${x(points[points.length - 1].t).toFixed(1)} ${(padding.top + innerH).toFixed(1)} ` +
-    `L ${x(points[0].t).toFixed(1)} ${(padding.top + innerH).toFixed(1)} Z`;
-
-  const hovered = hoverIndex !== null ? points[hoverIndex] : null;
-
   return (
-    <div className="relative mt-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Evolución del pasto disponible">
-        {[0, 0.5, 1].map((f) => (
-          <line
-            key={f}
-            x1={padding.left}
-            x2={width - padding.right}
-            y1={padding.top + innerH * (1 - f)}
-            y2={padding.top + innerH * (1 - f)}
-            stroke="rgba(255,255,255,.06)"
-          />
-        ))}
-        <text x={padding.left - 6} y={padding.top + 4} textAnchor="end" className="fill-stone-600" fontSize="9">
-          {Math.round(maxValue)}
-        </text>
-        <text x={padding.left - 6} y={padding.top + innerH} textAnchor="end" className="fill-stone-600" fontSize="9">
-          0
-        </text>
-        <path d={areaPath} fill={color} fillOpacity="0.12" stroke="none" />
-        <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle cx={x(p.t)} cy={y(p.value)} r={hoverIndex === i ? 4 : 2.5} fill={color} stroke="#161619" strokeWidth="1.5" />
-            <rect
-              x={x(p.t) - 10}
-              y={padding.top}
-              width="20"
-              height={innerH}
-              fill="transparent"
-              onMouseEnter={() => setHoverIndex(i)}
-              onMouseLeave={() => setHoverIndex((current) => (current === i ? null : current))}
-            />
-          </g>
-        ))}
-        <text x={padding.left} y={height - 6} className="fill-stone-600" fontSize="9">
-          {formatShortDate(points[0].t)}
-        </text>
-        <text x={width - padding.right} y={height - 6} textAnchor="end" className="fill-stone-600" fontSize="9">
-          {formatShortDate(points[points.length - 1].t)}
-        </text>
-      </svg>
-      {hovered && (
-        <div
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-white/10 bg-[#0b0b0c] px-2 py-1 text-[10px] font-semibold text-white shadow-xl"
-          style={{ left: `${(x(hovered.t) / width) * 100}%`, top: `${(y(hovered.value) / height) * 100}%` }}>
-          {formatShortDate(hovered.t)} · {hovered.value.toFixed(0)} kg MS/ha
-        </div>
-      )}
-    </div>
+    <TrendLineChart
+      points={points}
+      color={color}
+      formatX={formatShortDate}
+      formatTooltip={(p) => `${formatShortDate(p.t)} · ${p.value.toFixed(0)} kg MS/ha`}
+      emptyMessage="Todavía no hay suficiente histórico para graficar la evolución."
+    />
   );
 }
 
@@ -414,6 +229,19 @@ export default function PaddockDetailPage() {
   const [addingCattle, setAddingCattle] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  const [selectedHerdIds, setSelectedHerdIds] = useState([]);
+  useEffect(() => {
+    setSelectedHerdIds([]);
+  }, [paddock?.id]);
+
+  function toggleHerdSelection(id) {
+    setSelectedHerdIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function toggleHerdSelectAll() {
+    setSelectedHerdIds((current) => (current.length === herd.length ? [] : herd.map((a) => a.id)));
+  }
 
   async function handleAddCattle({ animals }) {
     if (!paddock) return;
@@ -662,17 +490,46 @@ export default function PaddockDetailPage() {
             </button>
           </div>
 
-          <p className="mt-4 text-[11px] text-stone-500">
-            {herd.length} {herd.length === 1 ? 'animal asignado' : 'animales asignados'}
-          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-stone-500">
+              {herd.length} {herd.length === 1 ? 'animal asignado' : 'animales asignados'}
+            </p>
+            {selectedHerdIds.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+                <span className="text-[11px] font-semibold text-emerald-400">
+                  {selectedHerdIds.length} seleccionados
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/traslado', { state: { animalIds: selectedHerdIds } })}
+                  className="flex items-center gap-1 rounded bg-white/[.08] px-2.5 py-1 text-[10px] font-bold text-stone-200 hover:bg-white/[.14]">
+                  <ArrowLeftRight size={12} /> Trasladar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHerdIds([])}
+                  className="text-[10px] text-stone-500 hover:text-white">
+                  Limpiar
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="mt-3 grid gap-4 md:grid-cols-3">
             <div className="md:col-span-2">
               {herd.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-white/[.06]">
-                  <table className="w-full min-w-[380px] text-left text-[11px]">
+                  <table className="w-full min-w-[420px] text-left text-[11px]">
                     <thead className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
                       <tr>
+                        <th className="w-8 px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={herd.length > 0 && selectedHerdIds.length === herd.length}
+                            onChange={toggleHerdSelectAll}
+                            className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                          />
+                        </th>
                         <th className="px-3 py-2 font-bold">Caravana</th>
                         <th className="px-3 py-2 font-bold">Categoría</th>
                         <th className="px-3 py-2 text-right font-bold">Peso</th>
@@ -681,7 +538,15 @@ export default function PaddockDetailPage() {
                     </thead>
                     <tbody className="divide-y divide-white/[.05] text-stone-300">
                       {herd.map((a) => (
-                        <tr key={a.id}>
+                        <tr key={a.id} className={selectedHerdIds.includes(a.id) ? 'bg-emerald-500/[0.03]' : ''}>
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedHerdIds.includes(a.id)}
+                              onChange={() => toggleHerdSelection(a.id)}
+                              className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                            />
+                          </td>
                           <td className="px-3 py-2 font-semibold text-white">{a.caravana}</td>
                           <td className="px-3 py-2">{a.category}</td>
                           <td className="px-3 py-2 text-right">{a.weight}</td>
@@ -695,7 +560,16 @@ export default function PaddockDetailPage() {
             </div>
             <div className="md:col-span-1 md:border-l md:border-white/[.06] md:pl-4">
               <p className="text-[11px] font-bold text-stone-300">Distribución por categoría</p>
-              <HerdCategoryDonut counts={herdByCategory} total={herd.length} />
+              <DonutChart
+                segments={Object.entries(herdByCategory).map(([category, count]) => ({
+                  key: category,
+                  label: category,
+                  value: count,
+                  color: CATEGORY_COLORS[category] || FALLBACK_CATEGORY_COLOR,
+                }))}
+                emptyMessage="Sin animales asignados todavía."
+                ariaLabel="Distribución del rodeo por categoría"
+              />
             </div>
           </div>
         </section>

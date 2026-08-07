@@ -81,6 +81,21 @@ export async function createForageEstimate(paddockId) {
   return api.post(`/potrero/${paddockId}/estimacion-forrajera`)
 }
 
+// GET .../estancia/{estanciaId}/analiticas agrega, sin persistir nada nuevo,
+// lo que ya existe en Ganado y Estimaciones: distribución de carga animal por
+// categoría, distribución de forraje entre potreros y crecimiento de forraje
+// de los últimos 7 días — para las gráficas del dashboard de resumen.
+export async function fetchEstanciaAnaliticas(estanciaId) {
+  return safeGet(`/estancia/${estanciaId}/analiticas`)
+}
+
+// GET .../estancia/{estanciaId}/analiticas/traslado-ganado agrega los
+// traslados de la estancia (total, entradas/salidas por potrero, matriz
+// origen-destino y rutas más frecuentes) en un rango de fechas opcional.
+export async function fetchTrasladoAnaliticas(estanciaId, { desde, hasta } = {}) {
+  return safeGet(`/estancia/${estanciaId}/analiticas/traslado-ganado`, { desde, hasta })
+}
+
 // POST .../estimacion-nutricional calcula el consumo DMI (materia seca/día)
 // de los animales con asignación vigente en el potrero, vía el modelo
 // predictivo externo. Devuelve el agregado persistido (EstimacionDemanda)

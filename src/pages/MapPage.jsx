@@ -51,6 +51,7 @@ export default function MapPage() {
   const [mutating, setMutating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [addingToPaddock, setAddingToPaddock] = useState(null);
+  const [selectedPaddock, setSelectedPaddock] = useState(null);
   const mapRef = useRef(null);
 
   async function reloadAll() {
@@ -283,6 +284,17 @@ export default function MapPage() {
     setPanelOpen(false);
   }
 
+  function handlePolygonSelect(paddockId) {
+    const paddock = paddocksWithCounts.find((p) => p.id === paddockId);
+    if (!paddock) return;
+    focusPaddock(paddock);
+  }
+
+  function openPaddockPicker(paddock) {
+    focusPaddock(paddock);
+    setSelectedPaddock(paddock);
+  }
+
   async function handleDeletePaddock(id) {
     setMutating(true);
     setActionError('');
@@ -426,6 +438,64 @@ export default function MapPage() {
             lockedPaddockId={addingToPaddock.id}
             lockedPaddockLabel={addingToPaddock.name}
           />
+        ) : selectedPaddock ? (
+          <>
+            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">Potrero</p>
+            <div className="flex items-center justify-between">
+              <h1 className="mt-1 font-display text-2xl text-white">{selectedPaddock.name}</h1>
+              <button
+                onClick={() => setSelectedPaddock(null)}
+                className="mt-1 text-[10px] font-bold text-stone-500 hover:text-white">
+                Cerrar
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] leading-4 text-stone-600 font-medium">
+              Elegí qué querés hacer con este potrero.
+            </p>
+
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const paddock = selectedPaddock;
+                  setSelectedPaddock(null);
+                  editPaddock(paddock);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
+                <Pencil size={15} className="shrink-0 text-stone-400" />
+                <span>
+                  <span className="block text-[12px] font-bold text-stone-200">Editar límites</span>
+                  <span className="block text-[10px] text-stone-500">Modificar el trazado de este potrero.</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const paddock = selectedPaddock;
+                  setSelectedPaddock(null);
+                  openAddCattle(paddock);
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
+                <Plus size={15} className="shrink-0 text-stone-400" />
+                <span>
+                  <span className="block text-[12px] font-bold text-stone-200">Agregar ganado</span>
+                  <span className="block text-[10px] text-stone-500">Incorporar animales a este potrero.</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/potreros/${selectedPaddock.id}`)}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
+                <LandPlot size={15} className="shrink-0 text-stone-400" />
+                <span>
+                  <span className="block text-[12px] font-bold text-stone-200">Ver detalle del potrero</span>
+                  <span className="block text-[10px] text-stone-500">Pasto, clima, ganado y traslados.</span>
+                </span>
+              </button>
+            </div>
+          </>
         ) : (
         <>
         <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">
@@ -641,7 +711,7 @@ export default function MapPage() {
                 key={paddock.id}
                 className="group flex items-center gap-2 rounded-lg border border-white/[.05] bg-white/[.025] p-3">
                 <button
-                  onClick={() => focusPaddock(paddock)}
+                  onClick={() => openPaddockPicker(paddock)}
                   className="flex min-w-0 flex-1 items-center gap-3.5 text-left">
                   <span
                     className="grid size-8 shrink-0 place-items-center rounded-md text-white font-bold text-[11px]"
@@ -750,7 +820,7 @@ export default function MapPage() {
           restrictTo={restrictTo}
           invalid={vertices.length >= 3 && !polygonIsSimple}
           onVertexDrag={moveVertex}
-          onPolygonClick={isDrawing ? null : (paddockId) => navigate(`/potreros/${paddockId}`)}
+          onPolygonClick={isDrawing ? null : handlePolygonSelect}
         />
         <div className="pointer-events-none absolute bottom-6 left-1/2 z-[500] -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#0f0f11]/90 px-3.5 py-2.5 text-[10px] font-semibold text-stone-300 shadow-xl backdrop-blur">
           {isDrawing

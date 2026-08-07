@@ -15,6 +15,20 @@ export const CATEGORY_OPTIONS = Object.entries(CATEGORY_API_TO_UI).map(([value, 
   label,
 }))
 
+// Orden categórico fijo (nunca ciclado por índice) — paleta validada CVD-safe
+// del sistema de referencia, pasos "dark" (única superficie que usa la app).
+// Claves en label de UI porque así vienen agrupados los datos de ganado en
+// pantalla (ver mapCattleFromApi); se resuelve por CATEGORY_API_TO_UI cuando
+// el dato de origen trae el código crudo (p. ej. analíticas de la estancia).
+export const CATEGORY_COLORS = {
+  Vaca: '#3987e5',
+  Vaquilla: '#d95926',
+  Novillo: '#199e70',
+  Toro: '#c98500',
+  'Ternero/Ternera': '#d55181',
+}
+export const FALLBACK_CATEGORY_COLOR = '#898781'
+
 // Sexo implícito por categoría: Vaca/Vaquillona son siempre hembra, Novillo/Toro
 // siempre macho. TERNERO queda afuera a propósito (Ternero/Ternera admite los dos).
 export const CATEGORY_SEX = {
