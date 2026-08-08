@@ -1,32 +1,25 @@
 import { useRef, useState } from 'react';
-import {
-  Check,
-  Crosshair,
-  LoaderCircle,
-  Leaf,
-  Play,
-  Plus,
-  RotateCcw,
-  Save,
-  X,
-} from 'lucide-react';
+import { LoaderCircle, RotateCcw, Save, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { createEstancia } from '../services/estanciaService.js';
 import { coordsToGeoJsonPolygon } from '../services/mappers.js';
 import { areaHectares } from '../utils/geo.js';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
+import PlaceSearchBar from '../components/PlaceSearchBar.jsx';
+import usePlaceSearch from '../hooks/usePlaceSearch.js';
+import Logo from '../components/Logo.jsx';
 
 export default function OnboardingEstanciaPage() {
   const navigate = useNavigate();
   const { refreshEstancia, logout } = useAuth();
   const mapRef = useRef(null);
+  const placeSearch = usePlaceSearch({
+    onSelect: (lat, lng) => mapRef.current?.flyTo([lat, lng], 14, { duration: 1.4 }),
+  });
 
   const [name, setName] = useState('');
   const [vertices, setVertices] = useState([]);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -35,43 +28,17 @@ export default function OnboardingEstanciaPage() {
     setError('');
   }
 
-  function startDrawing() {
-    setIsDrawing(true);
-    setError('');
-  }
-
-  function finishDrawing() {
-    if (vertices.length < 3) {
-      setError('Marcá al menos 3 vértices para terminar.');
-      return;
-    }
-    setIsDrawing(false);
-    setError('');
-  }
-
-  function handleCoordinateSubmit(event) {
-    event.preventDefault();
-    if (!isDrawing) {
-      setError('Iniciá el trazado antes de agregar coordenadas.');
-      return;
-    }
-    const lat = Number(latitude);
-    const lng = Number(longitude);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
-      setError('Ingresá coordenadas válidas.');
-      return;
-    }
-    addVertex(lat, lng);
-    setLatitude('');
-    setLongitude('');
-    mapRef.current?.flyTo([lat, lng], Math.max(mapRef.current.getZoom(), 13));
-  }
-
   function updateVertex(index, field, value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return;
     setVertices((current) =>
       current.map((vertex, itemIndex) => (itemIndex === index ? { ...vertex, [field]: number } : vertex))
+    );
+  }
+
+  function moveVertex(index, lat, lng) {
+    setVertices((current) =>
+      current.map((vertex, itemIndex) => (itemIndex === index ? { latitude: lat, longitude: lng } : vertex))
     );
   }
 
@@ -83,10 +50,6 @@ export default function OnboardingEstanciaPage() {
     }
     if (vertices.length < 3) {
       setError('El límite de la estancia necesita al menos 3 vértices.');
-      return;
-    }
-    if (isDrawing) {
-      setError('Terminá el trazado antes de guardar.');
       return;
     }
     setSaving(true);
@@ -104,12 +67,7 @@ export default function OnboardingEstanciaPage() {
   return (
     <main className="relative flex h-dvh min-h-[560px] overflow-hidden bg-[#0b0b0c] text-sm">
       <aside className="relative z-[1002] w-[min(90vw,340px)] shrink-0 overflow-y-auto border-r border-white/[.06] bg-[#0f0f11] p-5 text-stone-300 shadow-2xl">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-8 place-items-center rounded-lg bg-[#222227] text-white">
-            <Leaf size={16} />
-          </span>
-          <strong className="text-[13px] font-bold text-white">TERRABOVINA</strong>
-        </div>
+        <Logo size={36} />
         <p className="mt-6 text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">
           Primeros pasos
         </p>
@@ -128,61 +86,10 @@ export default function OnboardingEstanciaPage() {
           />
         </div>
 
-        {!isDrawing ? (
-          <button
-            onClick={startDrawing}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-stone-700 bg-stone-800 py-3 text-[12px] font-bold text-stone-200 hover:bg-stone-700">
-            <Play size={14} fill="currentColor" /> Iniciar trazado
-          </button>
-        ) : (
-          <button
-            onClick={finishDrawing}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black hover:bg-stone-200">
-            <Check size={14} /> Terminar trazado
-          </button>
-        )}
-        <div
-          className={`mt-2.5 flex items-center gap-2 rounded-md px-3 py-2 text-[10px] ${isDrawing ? 'bg-stone-500/10 text-stone-200' : 'bg-white/[.025] text-stone-600'}`}>
-          <span className={`size-2 rounded-full ${isDrawing ? 'animate-pulse bg-white' : 'bg-stone-700'}`} />
-          {isDrawing
-            ? 'Modo trazado activo: hacé clic sobre el mapa para conectar líneas'
-            : 'El mapa está en modo navegación'}
+        <div className="mt-4 flex items-center gap-2 rounded-md bg-stone-500/10 px-3 py-2 text-[10px] text-stone-200">
+          <span className="size-2 shrink-0 animate-pulse rounded-full bg-white" />
+          Hacé clic sobre el mapa para marcar cada vértice. Arrastrá los puntos para ajustarlos.
         </div>
-
-        <form
-          onSubmit={handleCoordinateSubmit}
-          className={`mt-4 rounded-lg border border-white/[.05] bg-white/[.025] p-3.5 ${!isDrawing ? 'opacity-45' : ''}`}>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-stone-400">
-            <Crosshair size={14} /> Agregar coordenada exacta
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              disabled={!isDrawing}
-              value={latitude}
-              onChange={(event) => setLatitude(event.target.value)}
-              type="number"
-              step="any"
-              placeholder="Latitud"
-              aria-label="Latitud"
-              className="min-w-0 rounded-md border border-white/[.07] bg-[#0b0b0c] px-3 py-2.5 text-[11px] text-white outline-none focus:border-stone-500"
-            />
-            <input
-              disabled={!isDrawing}
-              value={longitude}
-              onChange={(event) => setLongitude(event.target.value)}
-              type="number"
-              step="any"
-              placeholder="Longitud"
-              aria-label="Longitud"
-              className="min-w-0 rounded-md border border-white/[.07] bg-[#0b0b0c] px-3 py-2.5 text-[11px] text-white outline-none focus:border-stone-500"
-            />
-          </div>
-          <button
-            disabled={!isDrawing}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-white/[.07] bg-white/[.04] py-2.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.07] disabled:cursor-not-allowed">
-            <Plus size={13} /> Agregar vértice
-          </button>
-        </form>
 
         <div className="mt-5 flex items-center justify-between">
           <p className="text-[11px] font-bold text-stone-400">
@@ -264,11 +171,20 @@ export default function OnboardingEstanciaPage() {
       </aside>
 
       <section className="relative min-w-0 flex-1">
-        <PolygonMapCanvas mapRef={mapRef} isDrawing={isDrawing} onMapClick={addVertex} vertices={vertices} />
+        <PlaceSearchBar
+          {...placeSearch}
+          className="absolute left-1/2 top-3 z-[1000] w-[min(88%,390px)] -translate-x-1/2"
+        />
+        <PolygonMapCanvas
+          mapRef={mapRef}
+          isDrawing
+          onMapClick={addVertex}
+          vertices={vertices}
+          selectedPlace={placeSearch.selectedPlace}
+          onVertexDrag={moveVertex}
+        />
         <div className="pointer-events-none absolute bottom-6 left-1/2 z-[500] -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#0f0f11]/90 px-3.5 py-2.5 text-[10px] font-semibold text-stone-300 shadow-xl backdrop-blur">
-          {isDrawing
-            ? 'Hacé clic para marcar cada vértice en el mapa'
-            : 'Iniciá un trazado desde el panel lateral'}
+          Hacé clic para marcar cada vértice en el mapa
         </div>
       </section>
     </main>

@@ -49,13 +49,49 @@ const STATUS_STYLES = {
   empty: { status: 'Sin datos', statusColor: '#71717a', statusBg: '#71717a15', loadColor: '#71717a' },
 }
 
-export function buildPaddockStatus(entry) {
+// Carga animal = consumo diario predicho (por animal * cantidad de animales)
+// sobre la oferta total de forraje del potrero (kg MS/ha * hectáreas). Se
+// devuelve null ante cualquier dato faltante, negativo o una división por
+// cero (0/0 o n/0 son indeterminaciones, no "0% de carga").
+function computeLoadPercent(nutrition, forage, hectares) {
+  const consumoPorAnimal = Number(nutrition?.kg_materia_seca_dia)
+  const cantidadAnimales = Number(nutrition?.cantidad_animales)
+  const forrajePorHa = Number(forage?.kg_materia_seca_ha)
+  const ha = Number(hectares)
+
+  const valuesArePresent =
+    Number.isFinite(consumoPorAnimal) &&
+    Number.isFinite(cantidadAnimales) &&
+    Number.isFinite(forrajePorHa) &&
+    Number.isFinite(ha)
+  if (!valuesArePresent) return null
+
+  // Ningún factor puede ser negativo (kg, cantidad de animales y hectáreas
+  // son magnitudes no negativas); un valor negativo indica un dato inválido.
+  if (consumoPorAnimal < 0 || cantidadAnimales < 0 || forrajePorHa < 0 || ha < 0) return null
+
+  const consumoTotal = consumoPorAnimal * cantidadAnimales
+  const forrajeTotal = forrajePorHa * ha
+
+  if (forrajeTotal === 0) return null // 0/0 o n/0: indeterminado
+
+  const ratio = consumoTotal / forrajeTotal
+  return Number.isFinite(ratio) ? ratio * 100 : null
+}
+
+export function buildPaddockStatus(entry, hectares) {
   const forage = entry?.forage ?? null
+  const nutrition = entry?.nutrition ?? null
   const recommendation = entry?.recommendation ?? null
   const priority = recommendation?.prioridad ?? recommendation?.tipo ?? null
   const grassValue = forage?.kg_materia_seca_ha
   const grass = grassValue !== undefined && grassValue !== null ? `${grassValue} kg MS/ha` : 'Sin datos'
-  const load = '50%'
+
+  const loadPercent = computeLoadPercent(nutrition, forage, hectares)
+  const load = loadPercent !== null ? `${Math.round(loadPercent)}%` : 'Sin datos'
+  // Ancho seguro para barras de progreso: acotado a [0, 100] aunque el
+  // potrero esté sobrecargado (el número real, sin recortar, va en `load`).
+  const loadBarWidth = `${loadPercent !== null ? Math.min(Math.max(loadPercent, 0), 100) : 0}%`
 
   const recommendationText = recommendation
     ? recommendation.descripcion || recommendation.fundamento || null
@@ -67,7 +103,7 @@ export function buildPaddockStatus(entry) {
   else if (forage) variant = 'ok'
 
   const base = STATUS_STYLES[variant]
-  const result = { ...base, grass, load }
+  const result = { ...base, grass, load, loadBarWidth }
 
   if (variant === 'alert') result.alert = recommendationText || 'Se recomienda reducir la carga animal.'
   else if (variant === 'info') result.recommendation = recommendationText || 'Tiene una recomendación disponible.'

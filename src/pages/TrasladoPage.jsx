@@ -175,7 +175,7 @@ export default function TrasladoPage() {
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {paddocksWithCounts.map((paddock) => {
             const isSelected = paddock.id === selectedPaddockId;
-            const status = buildPaddockStatus(dataById[paddock.id]);
+            const status = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
             const isOrigin = selectedAnimals.some((a) => a.paddockId === paddock.id);
 
             return (

@@ -8,18 +8,19 @@ import {
   Plus,
   RotateCcw,
   Save,
-  Search,
   Trash2,
   X,
 } from 'lucide-react';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
+import usePlaceSearch from '../hooks/usePlaceSearch.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { areaHectares, isSimplePolygon } from '../utils/geo.js';
 import { COLORS } from '../utils/mapConstants.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
+import PlaceSearchBar from '../components/PlaceSearchBar.jsx';
 import { buildPaddockPayload, coordsToGeoJsonPolygon, geoJsonPolygonToCoords, withAnimalCounts } from '../services/mappers.js';
 import { createPaddock, deletePaddock, updatePaddock } from '../services/paddockService.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
@@ -38,11 +39,6 @@ export default function MapPage() {
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [panelOpen, setPanelOpen] = useState(false);
-  const [placeQuery, setPlaceQuery] = useState('');
-  const [placeResults, setPlaceResults] = useState([]);
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [searching, setSearching] = useState(false);
-  const [placeError, setPlaceError] = useState('');
   const [isDrawing, setIsDrawing] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editMode, setEditMode] = useState('potrero'); // 'potrero' | 'estancia'
@@ -53,6 +49,10 @@ export default function MapPage() {
   const [addingToPaddock, setAddingToPaddock] = useState(null);
   const [selectedPaddock, setSelectedPaddock] = useState(null);
   const mapRef = useRef(null);
+  const placeSearch = usePlaceSearch({
+    onSelect: (lat, lng) => mapRef.current?.flyTo([lat, lng], 14, { duration: 1.4 }),
+  });
+  const { selectedPlace } = placeSearch;
 
   async function reloadAll() {
     await Promise.all([reloadPaddocks(), reloadCattle()]);
@@ -66,6 +66,8 @@ export default function MapPage() {
     setIsDrawing(false);
     setError('');
     setAddingToPaddock(paddock);
+    focusPaddock(paddock);
+    setPanelOpen(true);
   }
 
   async function handleAddCattleToPaddock({ animals }) {
@@ -325,46 +327,6 @@ export default function MapPage() {
       setPendingDeleteId(null);
     } finally {
       setMutating(false);
-    }
-  }
-
-  function goToPlace(place) {
-    const lat = Number(place.lat);
-    const lng = Number(place.lon);
-    setSelectedPlace({ lat, lng, name: place.display_name });
-    setPlaceQuery(place.display_name.split(',').slice(0, 2).join(','));
-    setPlaceResults([]);
-    mapRef.current?.flyTo([lat, lng], 14, { duration: 1.4 });
-  }
-
-  async function searchPlace(event) {
-    event.preventDefault();
-    if (placeQuery.trim().length < 3) return;
-    setSearching(true);
-    setPlaceError('');
-    try {
-      const params = new URLSearchParams({
-        q: placeQuery.trim(),
-        format: 'json',
-        limit: '5',
-        countrycodes: 'ar',
-        'accept-language': 'es',
-      });
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
-      if (!response.ok) throw new Error('Search failed');
-      const places = await response.json();
-      setPlaceResults(places);
-      if (places.length > 0) {
-        const first = places[0];
-        const lat = Number(first.lat);
-        const lng = Number(first.lon);
-        setSelectedPlace({ lat, lng, name: first.display_name });
-        mapRef.current?.flyTo([lat, lng], 14, { duration: 1.4 });
-      } else setPlaceError('No encontramos ese lugar en Argentina.');
-    } catch {
-      setPlaceError('No se pudo realizar la búsqueda.');
-    } finally {
-      setSearching(false);
     }
   }
 
@@ -765,50 +727,10 @@ export default function MapPage() {
       )}
 
       <section className="relative min-w-0 flex-1">
-        <div className="absolute left-1/2 top-3 z-[1000] w-[min(88%,390px)] -translate-x-1/2">
-          <form
-            onSubmit={searchPlace}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0f0f11]/95 px-3.5 shadow-2xl backdrop-blur">
-            <Search size={14} className="shrink-0 text-white" />
-            <input
-              value={placeQuery}
-              onChange={(event) => setPlaceQuery(event.target.value)}
-              placeholder="Buscar localidad o dirección..."
-              className="min-w-0 flex-1 bg-transparent py-3 text-[12px] text-stone-250 outline-none placeholder:text-stone-750"
-            />
-            {searching && <LoaderCircle size={14} className="animate-spin text-stone-500" />}
-            {placeQuery && !searching && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPlaceQuery('');
-                  setPlaceResults([]);
-                  setPlaceError('');
-                }}
-                className="text-stone-600 hover:text-stone-300">
-                <X size={14} />
-              </button>
-            )}
-          </form>
-          {placeResults.length > 1 && (
-            <div className="mt-1 overflow-hidden rounded-lg border border-white/10 bg-[#0f0f11] shadow-2xl">
-              {placeResults.map((place) => (
-                <button
-                  key={place.place_id}
-                  onClick={() => goToPlace(place)}
-                  className="flex w-full items-start gap-2 border-b border-white/[.05] px-3.5 py-2.5 text-left text-[11px] leading-4 text-stone-400 last:border-0 hover:bg-white/[.04] hover:text-stone-200">
-                  <MapPin size={13} className="mt-0.5 shrink-0 text-white" />
-                  {place.display_name}
-                </button>
-              ))}
-            </div>
-          )}
-          {placeError && (
-            <p className="mt-1 rounded-md bg-[#0f0f11] px-3.5 py-2.5 text-[11px] text-stone-400 shadow-xl">
-              {placeError}
-            </p>
-          )}
-        </div>
+        <PlaceSearchBar
+          {...placeSearch}
+          className="absolute left-1/2 top-3 z-[1000] w-[min(88%,390px)] -translate-x-1/2"
+        />
         <PolygonMapCanvas
           mapRef={mapRef}
           isDrawing={isDrawing}

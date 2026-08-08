@@ -184,7 +184,6 @@ export default function PaddockDetailPage() {
   }, [paddock?.id]);
 
   const latestForage = forageOverride ?? entry?.forage ?? null;
-  const status = buildPaddockStatus({ ...entry, forage: latestForage });
 
   async function handleGenerateForage() {
     if (!paddock) return;
@@ -206,6 +205,8 @@ export default function PaddockDetailPage() {
   const [dmiError, setDmiError] = useState('');
   const [dmiOverride, setDmiOverride] = useState(null);
   const nutrition = dmiOverride ?? entry?.nutrition ?? null;
+
+  const status = buildPaddockStatus({ ...entry, forage: latestForage, nutrition }, paddock?.hectares);
 
   useEffect(() => {
     setDmiOverride(null);

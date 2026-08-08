@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Eye, Leaf, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Eye, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -46,12 +46,6 @@ export default function AuthPage({ mode }) {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f11]/60 via-[#0f0f11]/30 to-transparent" />
         <div className="absolute inset-0 bg-black/50" />
-        <div className="relative flex items-center gap-3 text-lg font-bold tracking-wide">
-          <span className="grid size-8 place-items-center rounded-lg bg-[#222227] text-white">
-            <Leaf size={16} />
-          </span>
-          TERRABOVINA
-        </div>
         <div className="relative max-w-xl animate-rise">
           <p className="mb-5 text-xs font-bold uppercase tracking-[.28em] text-stone-400">
             El campo, mejor medido
@@ -66,12 +60,6 @@ export default function AuthPage({ mode }) {
 
       <section className="flex min-h-screen items-center justify-center border-l border-white/[.05] bg-[#0b0b0c] px-6 py-10 sm:px-12">
         <div className="w-full max-w-sm animate-rise">
-          <div className="mb-12 flex items-center gap-3 font-bold tracking-wide text-white lg:hidden">
-            <span className="grid size-8 place-items-center rounded-lg bg-[#222227] text-white">
-              <Leaf size={16} />
-            </span>
-            TERRABOVINA
-          </div>
           <p className="text-[10px] font-bold uppercase tracking-[.2em] text-stone-400">
             {isRegister ? 'Creá tu cuenta' : 'Bienvenido de nuevo'}
           </p>

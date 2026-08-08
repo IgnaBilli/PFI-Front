@@ -7,6 +7,8 @@ import {
   WEIGHT_RANGE_BY_CATEGORY,
 } from '../services/mappers.js';
 import { createNutritionEstimate } from '../services/analyticsService.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { generateCaravanas } from '../utils/caravana.js';
 
 const WEIGHT_RANGE_TOLERANCE_KG = 5;
 
@@ -36,9 +38,9 @@ export default function AddCattleModal({
   lockedPaddockLabel = null,
   variant = 'modal',
 }) {
+  const { estancia } = useAuth();
   const [category, setCategory] = useState('VACA');
   const [quantity, setQuantity] = useState('1');
-  const [identifications, setIdentifications] = useState(['']);
   const [weight, setWeight] = useState('');
   const [cc, setCc] = useState('');
   const [status, setStatus] = useState('N');
@@ -55,7 +57,6 @@ export default function AddCattleModal({
     if (!isOpen) return;
     setCategory('VACA');
     setQuantity('1');
-    setIdentifications(['']);
     setWeight('');
     setCc('');
     setStatus('N');
@@ -75,7 +76,6 @@ export default function AddCattleModal({
 
   const sex = CATEGORY_SEX[category] ?? DEFAULT_TERNERO_SEX;
   const isVaca = category === 'VACA';
-  const existingSet = new Set(existingCaravanas.map((c) => String(c).trim().toLowerCase()));
 
   const dmiByAnimalId = new Map(
     (dmiResult?.predicciones ?? []).map((p) => [String(p.animal_id), p])
@@ -106,19 +106,14 @@ export default function AddCattleModal({
   const herdMales = herd.filter((a) => a.sex === 'M').length;
   const herdFemales = herd.filter((a) => a.sex === 'F').length;
 
-  function handleQuantityChange(value) {
-    setQuantity(value);
-    const qty = Math.max(1, parseInt(value, 10) || 1);
-    setIdentifications((current) => {
-      const next = current.slice(0, qty);
-      while (next.length < qty) next.push('');
-      return next;
-    });
-  }
-
-  function updateIdentification(index, value) {
-    setIdentifications((current) => current.map((item, i) => (i === index ? value : item)));
-  }
+  const previewQty = Math.max(1, Math.min(parseInt(quantity, 10) || 0, 50));
+  const previewCaravanas = generateCaravanas({
+    estanciaName: estancia?.nombre,
+    paddockName: summaryPaddockName,
+    startCount: herdTotal,
+    quantity: previewQty,
+    existingCaravanas,
+  });
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -130,20 +125,13 @@ export default function AddCattleModal({
       return;
     }
 
-    const trimmedIds = identifications.map((id) => id.trim());
-    if (trimmedIds.some((id) => !id)) {
-      setError('Ingresá la caravana o número de identificación de cada animal.');
-      return;
-    }
-    const lowerIds = trimmedIds.map((id) => id.toLowerCase());
-    if (new Set(lowerIds).size !== lowerIds.length) {
-      setError('Hay caravanas repetidas en la lista.');
-      return;
-    }
-    if (lowerIds.some((id) => existingSet.has(id))) {
-      setError('Una de las caravanas ya está registrada en el rodeo.');
-      return;
-    }
+    const generatedCaravanas = generateCaravanas({
+      estanciaName: estancia?.nombre,
+      paddockName: summaryPaddockName,
+      startCount: herdTotal,
+      quantity: qty,
+      existingCaravanas,
+    });
 
     const weightNumber = Number(weight);
     if (!weight.trim() || !Number.isFinite(weightNumber) || weightNumber <= 0) {
@@ -172,7 +160,7 @@ export default function AddCattleModal({
       }
     }
 
-    const animals = trimmedIds.map((caravana) =>
+    const animals = generatedCaravanas.map((caravana) =>
       buildCattleCreatePayload({
         caravana,
         sex,
@@ -251,7 +239,7 @@ export default function AddCattleModal({
                 type="number"
                 min="1"
                 value={quantity}
-                onChange={(e) => handleQuantityChange(e.target.value)}
+                onChange={(e) => setQuantity(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
               />
             </div>
@@ -271,24 +259,18 @@ export default function AddCattleModal({
 
           <div>
             <label className="block font-bold text-stone-400">
-              {identifications.length > 1 ? 'Identificación de cada animal' : 'Caravana / N° de identificación'}
+              {previewCaravanas.length > 1 ? 'Caravanas asignadas automáticamente' : 'Caravana asignada automáticamente'}
             </label>
-            <div className="mt-1.5 space-y-1.5">
-              {identifications.map((value, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  {identifications.length > 1 && (
-                    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-stone-700 text-[10px] font-bold text-white">
-                      {index + 1}
-                    </span>
-                  )}
-                  <input
-                    type="text"
-                    placeholder="Ej: AR-1234"
-                    value={value}
-                    onChange={(e) => updateIdentification(index, e.target.value)}
-                    className="w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
-                  />
-                </div>
+            <p className="mt-1 text-[10px] text-stone-600">
+              Estancia + potrero + número correlativo del rodeo. No hace falta cargarla a mano.
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {previewCaravanas.map((caravana) => (
+                <span
+                  key={caravana}
+                  className="rounded-md border border-white/[.08] bg-white/[.03] px-2.5 py-1.5 font-mono text-[11px] font-bold text-white">
+                  {caravana}
+                </span>
               ))}
             </div>
           </div>

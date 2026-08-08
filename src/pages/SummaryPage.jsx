@@ -173,7 +173,7 @@ export default function SummaryPage() {
         ) : (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {paddocksWithCounts.map((paddock) => {
-              const details = buildPaddockStatus(dataById[paddock.id]);
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
 
               return (
                 <article
@@ -203,7 +203,7 @@ export default function SummaryPage() {
                         <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
                           <div
                             className="h-full rounded-full"
-                            style={{ width: details.load, backgroundColor: details.statusColor }}
+                            style={{ width: details.loadBarWidth, backgroundColor: details.statusColor }}
                           />
                         </div>
                       </div>
