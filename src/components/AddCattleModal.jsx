@@ -110,15 +110,6 @@ export default function AddCattleModal({
   const herdMales = herd.filter((a) => a.sex === 'M').length;
   const herdFemales = herd.filter((a) => a.sex === 'F').length;
 
-  const previewQty = Math.max(1, Math.min(parseInt(quantity, 10) || 0, 50));
-  const previewCaravanas = generateCaravanas({
-    estanciaName: estancia?.nombre,
-    paddockName: summaryPaddockName,
-    startCount: herdTotal,
-    quantity: previewQty,
-    existingCaravanas,
-  });
-
   function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -265,24 +256,6 @@ export default function AddCattleModal({
                 }}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-bold text-stone-400">
-              {previewCaravanas.length > 1 ? 'Caravanas asignadas automáticamente' : 'Caravana asignada automáticamente'}
-            </label>
-            <p className="mt-1 text-[10px] text-stone-600">
-              Estancia + potrero + número correlativo del rodeo. No hace falta cargarla a mano.
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {previewCaravanas.map((caravana) => (
-                <span
-                  key={caravana}
-                  className="rounded-md border border-white/[.08] bg-white/[.03] px-2.5 py-1.5 font-mono text-[11px] font-bold text-white">
-                  {caravana}
-                </span>
-              ))}
             </div>
           </div>
 
