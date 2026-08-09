@@ -46,6 +46,8 @@ export default function AddCattleModal({
   const [status, setStatus] = useState('N');
   const [selectedPaddockId, setSelectedPaddockId] = useState('');
   const [error, setError] = useState('');
+  const [weightWarning, setWeightWarning] = useState('');
+  const [weightConfirmed, setWeightConfirmed] = useState(false);
   const [dmiLoading, setDmiLoading] = useState(false);
   const [dmiError, setDmiError] = useState('');
   const [dmiResult, setDmiResult] = useState(null);
@@ -62,6 +64,8 @@ export default function AddCattleModal({
     setStatus('N');
     setSelectedPaddockId('');
     setError('');
+    setWeightWarning('');
+    setWeightConfirmed(false);
     setDmiLoading(false);
     setDmiError('');
     setDmiResult(null);
@@ -118,6 +122,7 @@ export default function AddCattleModal({
   function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setWeightWarning('');
 
     const qty = parseInt(quantity, 10);
     if (isNaN(qty) || qty < 1) {
@@ -140,15 +145,17 @@ export default function AddCattleModal({
     }
 
     const weightRange = WEIGHT_RANGE_BY_CATEGORY[category];
-    if (
+    const isWeightOutOfRange =
       weightRange &&
       (weightNumber < weightRange.min - WEIGHT_RANGE_TOLERANCE_KG ||
-        weightNumber > weightRange.max + WEIGHT_RANGE_TOLERANCE_KG)
-    ) {
+        weightNumber > weightRange.max + WEIGHT_RANGE_TOLERANCE_KG);
+
+    if (isWeightOutOfRange && !weightConfirmed) {
       const categoryLabel = CATEGORY_OPTIONS.find((opt) => opt.value === category)?.label ?? category;
-      setError(
-        `El peso ingresado (${weightNumber} kg) está fuera del rango observado para la categoría ${categoryLabel} (${weightRange.min}-${weightRange.max} kg). Revisá el dato antes de registrar el animal.`
+      setWeightWarning(
+        `El peso ingresado (${weightNumber} kg) está fuera del rango observado para la categoría ${categoryLabel} (${weightRange.min}-${weightRange.max} kg). Hacé clic en "Confirmar y Registrar" para guardarlo de todos modos.`
       );
+      setWeightConfirmed(true);
       return;
     }
 
@@ -251,7 +258,11 @@ export default function AddCattleModal({
                 step="any"
                 placeholder="Ej: 380"
                 value={weight}
-                onChange={(e) => setWeight(e.target.value)}
+                onChange={(e) => {
+                  setWeight(e.target.value);
+                  setWeightWarning('');
+                  setWeightConfirmed(false);
+                }}
                 className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
               />
             </div>
@@ -321,6 +332,12 @@ export default function AddCattleModal({
             </p>
           )}
 
+          {weightWarning && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] font-medium text-amber-300">
+              ⚠️ {weightWarning}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2.5 pt-3 border-t border-white/[.08]">
             <button
               type="button"
@@ -331,7 +348,7 @@ export default function AddCattleModal({
             <button
               type="submit"
               className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2.5 font-bold text-black hover:bg-emerald-400">
-              <Plus size={14} /> Agregar al Rodeo
+              <Plus size={14} /> {weightConfirmed ? 'Confirmar y Agregar al Rodeo' : 'Agregar al Rodeo'}
             </button>
           </div>
         </form>
