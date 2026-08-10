@@ -15,7 +15,12 @@ import useCattle from '../hooks/useCattle.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
 import useEstanciaAnaliticas from '../hooks/useEstanciaAnaliticas.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { CATEGORY_API_TO_UI, CATEGORY_COLORS, FALLBACK_CATEGORY_COLOR, withAnimalCounts } from '../services/mappers.js';
+import {
+  CATEGORY_API_TO_UI,
+  CATEGORY_COLORS,
+  FALLBACK_CATEGORY_COLOR,
+  withAnimalCounts,
+} from '../services/mappers.js';
 import { formatShortDate } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
 import TrendLineChart from '../components/TrendLineChart.jsx';
@@ -40,13 +45,17 @@ function ForageDistributionList({ rows }) {
           <div className="flex items-center justify-between gap-2 text-[11px]">
             <span className="truncate font-semibold text-stone-300">{row.nombre}</span>
             <span className="shrink-0 text-stone-500">
-              {Number(row.porcentaje).toFixed(0)}% · {Number(row.kg_materia_seca_total).toFixed(0)} kg MS
+              {Number(row.porcentaje).toFixed(0)}% · {Number(row.kg_materia_seca_total).toFixed(0)}{' '}
+              kg MS
             </span>
           </div>
           <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[.04]">
             <div
               className="h-full rounded-full"
-              style={{ width: `${Math.min(100, Number(row.porcentaje))}%`, backgroundColor: FORAGE_COLOR }}
+              style={{
+                width: `${Math.min(100, Number(row.porcentaje))}%`,
+                backgroundColor: FORAGE_COLOR,
+              }}
             />
           </div>
         </div>
@@ -61,15 +70,23 @@ export default function SummaryPage() {
   const { cattle, loading: cattleLoading, error: cattleError } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
   const { dataById, loading: analyticsLoading } = usePaddockAnalytics(paddocksWithCounts);
-  const { analiticas, traslados: trasladoAnaliticas, loading: estanciaAnaliticasLoading } = useEstanciaAnaliticas(estanciaId);
+  const {
+    analiticas,
+    traslados: trasladoAnaliticas,
+    loading: estanciaAnaliticasLoading,
+  } = useEstanciaAnaliticas(estanciaId);
 
   const loading = paddocksLoading || cattleLoading;
 
   const activePaddocks = paddocksWithCounts.filter((p) => p.active);
   const alerts = paddocksWithCounts.filter(
-    (p) => (dataById[p.id]?.recommendation?.prioridad ?? dataById[p.id]?.recommendation?.tipo) === 'REDUCIR_CARGA'
+    (p) =>
+      (dataById[p.id]?.recommendation?.prioridad ?? dataById[p.id]?.recommendation?.tipo) ===
+      'REDUCIR_CARGA'
   ).length;
-  const recommendationsCount = paddocksWithCounts.filter((p) => dataById[p.id]?.recommendation).length;
+  const recommendationsCount = paddocksWithCounts.filter(
+    (p) => dataById[p.id]?.recommendation
+  ).length;
 
   const cargaAnimalSegments = (analiticas?.distribucionCargaAnimal ?? []).map((row) => {
     const label = CATEGORY_API_TO_UI[row.categoria] ?? row.categoria;
@@ -125,7 +142,9 @@ export default function SummaryPage() {
             <LandPlot size={18} />
           </span>
           <div>
-            <strong className="block text-base font-bold text-white">{activePaddocks.length}</strong>
+            <strong className="block text-base font-bold text-white">
+              {activePaddocks.length}
+            </strong>
             <span className="block text-[10px] text-stone-500">Potreros activos</span>
           </div>
         </article>
@@ -185,7 +204,9 @@ export default function SummaryPage() {
                         <h3 className="text-[13px] font-bold text-white leading-tight">
                           {paddock.name}
                         </h3>
-                        <p className="mt-0.5 text-stone-500 font-medium">{paddock.hectares.toFixed(0)} ha</p>
+                        <p className="mt-0.5 text-stone-500 font-medium">
+                          {paddock.hectares.toFixed(0)} ha
+                        </p>
                       </div>
                       <span
                         className="rounded-full px-2 py-0.5 font-semibold text-[10px]"
@@ -203,7 +224,10 @@ export default function SummaryPage() {
                         <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
                           <div
                             className="h-full rounded-full"
-                            style={{ width: details.loadBarWidth, backgroundColor: details.statusColor }}
+                            style={{
+                              width: details.loadBarWidth,
+                              backgroundColor: details.statusColor,
+                            }}
                           />
                         </div>
                       </div>
@@ -290,7 +314,9 @@ export default function SummaryPage() {
           <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5 lg:col-span-2">
             <div className="flex items-center gap-2">
               <TrendingUp size={15} className="text-stone-400" />
-              <h3 className="text-[12px] font-bold text-stone-200">Crecimiento de forraje (últimos 7 días)</h3>
+              <h3 className="text-[12px] font-bold text-stone-200">
+                Crecimiento de forraje (últimos 7 días)
+              </h3>
             </div>
             <p className="mt-0.5 text-[11px] text-stone-500">
               Promedio diario de kg MS/ha entre los potreros con medición ese día.
@@ -324,13 +350,17 @@ export default function SummaryPage() {
               <>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:w-72">
                   <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Traslados</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                      Traslados
+                    </p>
                     <p className="mt-1 text-[17px] font-bold text-white">
                       {trasladoAnaliticas?.totalTraslados ?? 0}
                     </p>
                   </div>
                   <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Animales movidos</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                      Animales movidos
+                    </p>
                     <p className="mt-1 text-[17px] font-bold text-white">
                       {trasladoAnaliticas?.totalAnimalesMovidos ?? 0}
                     </p>
@@ -339,7 +369,9 @@ export default function SummaryPage() {
 
                 <h4 className="mt-5 text-[11px] font-bold text-stone-300">Rutas más frecuentes</h4>
                 {rutasFrecuentes.length === 0 ? (
-                  <p className="mt-2 text-[11px] text-stone-500">Todavía no hay traslados registrados.</p>
+                  <p className="mt-2 text-[11px] text-stone-500">
+                    Todavía no hay traslados registrados.
+                  </p>
                 ) : (
                   <div className="mt-2 space-y-2">
                     {rutasFrecuentes.map((ruta, index) => (
@@ -347,12 +379,17 @@ export default function SummaryPage() {
                         key={`${ruta.id_potrero_origen}-${ruta.id_potrero_destino}-${index}`}
                         className="flex items-center justify-between gap-2 rounded-lg border border-white/[.06] bg-white/[.02] px-3.5 py-2.5 text-[11px]">
                         <span className="flex min-w-0 items-center gap-1.5 text-stone-300">
-                          <span className="truncate font-semibold text-white">{ruta.potrero_origen_nombre}</span>
+                          <span className="truncate font-semibold text-white">
+                            {ruta.potrero_origen_nombre}
+                          </span>
                           <ArrowLeftRight size={11} className="shrink-0 text-stone-500" />
-                          <span className="truncate font-semibold text-white">{ruta.potrero_destino_nombre}</span>
+                          <span className="truncate font-semibold text-white">
+                            {ruta.potrero_destino_nombre}
+                          </span>
                         </span>
                         <span className="shrink-0 text-stone-500">
-                          {ruta.cantidad_animales} {ruta.cantidad_animales === 1 ? 'animal' : 'animales'}
+                          {ruta.cantidad_animales}{' '}
+                          {ruta.cantidad_animales === 1 ? 'animal' : 'animales'}
                         </span>
                       </div>
                     ))}

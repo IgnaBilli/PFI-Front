@@ -379,7 +379,7 @@ export default function PaddockDetailPage() {
           <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-base text-white">Disponibilidad de pasto</h2>
+                <h2 className="font-display text-base text-white">Productividad estimada</h2>
                 <p className="mt-0.5 text-[11px] text-stone-500">
                   Medición vigente y su evolución en el tiempo (NDVI Sentinel-2).
                 </p>
