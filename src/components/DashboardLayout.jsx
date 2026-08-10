@@ -62,9 +62,7 @@ export default function DashboardLayout() {
               }>
               {({ isActive }) => (
                 <>
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#7A5A46]" />
-                  )}
+
                   <span
                     className={`grid size-10 shrink-0 place-items-center rounded-xl transition-colors ${
                       isActive

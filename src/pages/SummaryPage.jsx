@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   LoaderCircle,
   Sprout,
-  TrendingUp,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
@@ -290,30 +289,7 @@ export default function SummaryPage() {
             )}
           </article>
 
-          <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5 lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={15} className="text-stone-400" />
-              <h3 className="text-[12px] font-bold text-stone-200">
-                Crecimiento de forraje (últimos 7 días)
-              </h3>
-            </div>
-            <p className="mt-0.5 text-[11px] text-stone-500">
-              Promedio diario de kg MS/ha entre los potreros con medición ese día.
-            </p>
-            {estanciaAnaliticasLoading ? (
-              <div className="mt-6 flex items-center justify-center gap-2 py-8 text-[11px] text-stone-500">
-                <LoaderCircle size={14} className="animate-spin" /> Cargando...
-              </div>
-            ) : (
-              <TrendLineChart
-                points={forageGrowthPoints}
-                color={FORAGE_COLOR}
-                formatX={formatShortDate}
-                formatTooltip={(p) => `${formatShortDate(p.t)} · ${p.value.toFixed(0)} kg MS/ha`}
-                emptyMessage="Todavía no hay suficientes mediciones para graficar la evolución."
-              />
-            )}
-          </article>
+
 
           <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5 lg:col-span-2">
             <div className="flex items-center gap-2">

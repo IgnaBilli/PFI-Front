@@ -26,14 +26,14 @@ import {
 import { ApiError } from '../services/api.js';
 
 const STATUS_OPTIONS = [
-  { value: 'L', label: 'L: Lactando (produciendo leche)' },
-  { value: 'P', label: 'P: Preñada / Gestante' },
-  { value: 'B', label: 'B: Seca / Vacía' },
-  { value: 'N', label: 'N: Normal / No gestante ni lactante' },
-  { value: 'P/L', label: 'P/L: Preñada y Lactando simultáneamente' },
-  { value: 'B/L', label: 'B/L: Seca y Lactando (o transiciones)' },
-  { value: 'N/P', label: 'N/P: No lactante y Preñada' },
-  { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado' },
+  { value: 'L', label: 'L: Lactando (produciendo leche)', fullText: 'Lactando' },
+  { value: 'P', label: 'P: Preñada / Gestante', fullText: 'Preñada' },
+  { value: 'B', label: 'B: Seca / Vacía', fullText: 'Seca' },
+  { value: 'N', label: 'N: Normal / No gestante ni lactante', fullText: 'Normal' },
+  { value: 'P/L', label: 'P/L: Preñada y Lactando simultáneamente', fullText: 'Preñada y Lactando' },
+  { value: 'B/L', label: 'B/L: Seca y Lactando (o transiciones)', fullText: 'Seca y Lactando' },
+  { value: 'N/P', label: 'N/P: No lactante y Preñada', fullText: 'Preñada (no lactante)' },
+  { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado', fullText: 'Desconocido' },
 ];
 
 export default function CattlePage() {
@@ -44,6 +44,10 @@ export default function CattlePage() {
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
 
   const [query, setQuery] = useState('');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterPaddockId, setFilterPaddockId] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingOriginal, setEditingOriginal] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,9 +71,15 @@ export default function CattlePage() {
 
   const loading = cattleLoading || paddocksLoading;
 
-  const filtered = cattle.filter((animal) =>
-    Object.values(animal).some((value) => String(value).toLowerCase().includes(query.toLowerCase()))
-  );
+  const hasActiveFilters = Boolean(filterCategory || filterPaddockId || filterStatus);
+
+  const filtered = cattle.filter((animal) => {
+    const matchesQuery = !query || Object.values(animal).some((value) => String(value).toLowerCase().includes(query.toLowerCase()));
+    const matchesCategory = !filterCategory || (CATEGORY_UI_TO_API[animal.category] ?? animal.category) === filterCategory;
+    const matchesPaddock = !filterPaddockId || (filterPaddockId === 'unassigned' ? !animal.paddockId : animal.paddockId === filterPaddockId);
+    const matchesStatus = !filterStatus || animal.status === filterStatus;
+    return matchesQuery && matchesCategory && matchesPaddock && matchesStatus;
+  });
 
   async function reloadAll() {
     await Promise.all([reloadCattle(), reloadPaddocks()]);
@@ -310,10 +320,84 @@ export default function CattlePage() {
               className="w-full bg-transparent py-3 text-[12px] text-white outline-none placeholder:text-stone-750"
             />
           </label>
-          <button className="grid size-10 place-items-center rounded-lg border border-white/[.07] bg-[#161619] text-stone-400">
+          <button
+            type="button"
+            onClick={() => setShowFilterPanel((prev) => !prev)}
+            className={`relative grid size-10 place-items-center rounded-lg border transition-colors ${
+              showFilterPanel || hasActiveFilters
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                : 'border-white/[.07] bg-[#161619] text-stone-400 hover:text-white'
+            }`}
+            title="Filtrar ganado">
             <SlidersHorizontal size={14} />
+            {hasActiveFilters && (
+              <span className="absolute -right-1 -top-1 size-2 rounded-full bg-emerald-400" />
+            )}
           </button>
         </div>
+
+        {showFilterPanel && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-white/[.08] bg-[#161619] p-3.5 text-[11px] text-stone-300">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Categoría</label>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                <option value="">Todas las categorías</option>
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Potrero</label>
+              <select
+                value={filterPaddockId}
+                onChange={(e) => setFilterPaddockId(e.target.value)}
+                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                <option value="">Todos los potreros</option>
+                <option value="unassigned">Sin asignar</option>
+                {paddocks.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Estado Reproductivo</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                <option value="">Todos los estados</option>
+                {STATUS_OPTIONS.map((st) => (
+                  <option key={st.value} value={st.value}>
+                    {st.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterCategory('');
+                  setFilterPaddockId('');
+                  setFilterStatus('');
+                }}
+                className="mt-auto rounded-lg border border-white/[.08] bg-white/[.04] px-3 py-1.5 text-[11px] font-semibold text-stone-400 hover:bg-white/[.08] hover:text-white">
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        )}
 
         {selectedIds.length > 0 && (
           <div className="flex flex-wrap items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 px-3.5">
@@ -371,8 +455,8 @@ export default function CattlePage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[800px] text-left">
               <thead>
-                <tr className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
-                  <th className="px-5 py-3 w-10">
+                <tr className="border-b border-white/[.06] text-[12px] uppercase tracking-wider text-stone-400">
+                  <th className="px-5 py-3.5 w-10">
                     <input
                       type="checkbox"
                       checked={filtered.length > 0 && selectedIds.length === filtered.length}
@@ -380,16 +464,16 @@ export default function CattlePage() {
                       className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
                     />
                   </th>
-                  <th className="px-5 py-3 font-semibold">Caravana</th>
-                  <th className="px-4 py-3 font-semibold">Categoría</th>
-                  <th className="px-4 py-3 font-semibold">Peso Vivo</th>
-                  <th className="px-4 py-3 font-semibold">
+                  <th className="px-5 py-3.5 font-semibold">Caravana</th>
+                  <th className="px-4 py-3.5 font-semibold">Categoría</th>
+                  <th className="px-4 py-3.5 font-semibold">Peso Vivo</th>
+                  <th className="px-4 py-3.5 font-semibold">
                     Condición Corporal{' '}
-                    <span className="text-stone-600 font-normal lowercase">(1 al 5)</span>
+                    <span className="text-stone-500 font-normal lowercase">(1 al 5)</span>
                   </th>
-                  <th className="px-5 py-3 font-semibold">Estado</th>
-                  <th className="px-4 py-3 font-semibold">Potrero</th>
-                  <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                  <th className="px-5 py-3.5 font-semibold">Estado</th>
+                  <th className="px-4 py-3.5 font-semibold">Potrero</th>
+                  <th className="px-4 py-3.5 font-semibold text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[.05]">
@@ -403,7 +487,7 @@ export default function CattlePage() {
                   return (
                     <tr
                       key={animal.id}
-                      className={`text-[12px] transition ${isSelected ? 'bg-emerald-500/[0.02] text-stone-300' : 'text-stone-400'}`}>
+                      className={`text-[13.5px] transition ${isSelected ? 'bg-emerald-500/[0.02] text-stone-300' : 'text-stone-300'}`}>
                       <td className="px-5 py-4 w-10">
                         <input
                           type="checkbox"
@@ -413,8 +497,8 @@ export default function CattlePage() {
                         />
                       </td>
                       <td className="px-5 py-4">
-                        <span className="flex items-center gap-2 font-bold text-stone-200">
-                          <Beef size={14} className="text-stone-400" />
+                        <span className="flex items-center gap-2 font-bold text-white text-[14px]">
+                          <Beef size={15} className="text-stone-400" />
                           {animal.caravana}
                         </span>
                       </td>
@@ -423,7 +507,7 @@ export default function CattlePage() {
                           <select
                             value={category}
                             onChange={(e) => handleCategoryChangeInEdit(e.target.value)}
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500">
                             {CATEGORY_OPTIONS.map((cat) => (
                               <option key={cat.value} value={cat.value}>
                                 {cat.label}
@@ -443,7 +527,7 @@ export default function CattlePage() {
                             value={weight}
                             onChange={(e) => setWeight(e.target.value)}
                             placeholder="Ej: 380"
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500"
                           />
                         ) : (
                           animal.weight
@@ -465,10 +549,10 @@ export default function CattlePage() {
                               min="1"
                               max="5"
                               step="0.1"
-                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500"
+                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500"
                             />
                           ) : (
-                            <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
+                            <span className="text-stone-500 font-semibold text-[12px]">N/A</span>
                           )
                         ) : (
                           animal.cc
@@ -480,7 +564,7 @@ export default function CattlePage() {
                             <select
                               value={status}
                               onChange={(e) => setStatus(e.target.value)}
-                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500 text-[11px]">
+                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500 text-[12px]">
                               {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                   {opt.label}
@@ -488,13 +572,13 @@ export default function CattlePage() {
                               ))}
                             </select>
                           ) : (
-                            <span className="text-stone-600 font-semibold text-[11px]">N/A</span>
+                            <span className="text-stone-500 font-semibold text-[12px]">N/A</span>
                           )
                         ) : (
                           <span
                             title={currentStatusOption ? currentStatusOption.label : animal.status}
-                            className="rounded-full bg-white/[.05] px-2.5 py-1 text-[10px] font-semibold text-stone-300 cursor-help">
-                            {animal.status}
+                            className="rounded-full bg-white/[.06] px-3 py-1 text-[11.5px] font-semibold text-stone-200">
+                            {currentStatusOption?.fullText || animal.status || '-'}
                           </span>
                         )}
                       </td>
@@ -503,7 +587,7 @@ export default function CattlePage() {
                           <select
                             value={paddockId}
                             onChange={(e) => setPaddockId(e.target.value)}
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500">
+                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500">
                             {paddockOptions.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name}
