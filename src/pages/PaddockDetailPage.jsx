@@ -435,14 +435,7 @@ export default function PaddockDetailPage() {
               )}
             </div>
 
-            {latestForage && (
-              <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[.04]">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${forageBarPct}%`, backgroundColor: status.statusColor }}
-                />
-              </div>
-            )}
+
 
             <h3 className="mt-6 text-[12px] font-bold text-stone-300">Evolución del pasto</h3>
             <ForageTrendChart history={forageHistory} color={status.statusColor} />
