@@ -381,7 +381,7 @@ export default function PaddockDetailPage() {
               <div>
                 <h2 className="font-display text-base text-white">Productividad estimada</h2>
                 <p className="mt-0.5 text-[11px] text-stone-500">
-                  Medición vigente y su evolución en el tiempo (NDVI Sentinel-2).
+                  Estimación basada en NDVI, clima y características del entorno.
                 </p>
               </div>
               <button
