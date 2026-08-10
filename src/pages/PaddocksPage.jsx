@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   LoaderCircle,
   Plus,
-  Sprout,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
@@ -155,34 +154,11 @@ export default function PaddocksPage() {
                       <LandPlot size={11} /> {paddock.hectares.toFixed(0)} ha
                     </p>
 
-                    <div className="mt-4 space-y-2.5">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1.5">
-                            <Sprout size={13} className="text-stone-500" /> Pasto disponible
-                          </span>
-                          <strong style={{ color: details.statusColor }}>{details.grass}</strong>
-                        </div>
-                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: details.loadBarWidth,
-                              backgroundColor: details.statusColor,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-1.5">
-                        <span className="flex items-center gap-1.5">
-                          <Beef size={13} className="text-stone-500" />
-                          <strong className="text-stone-200">{paddock.animals}</strong> cabezas
-                        </span>
-                        <span>
-                          Carga <strong style={{ color: details.loadColor }}>{details.load}</strong>
-                        </span>
-                      </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-stone-300">
+                        <Beef size={13} className="text-stone-500" />
+                        <strong className="text-stone-200">{paddock.animals}</strong> cabezas
+                      </span>
                     </div>
                   </div>
                 </div>

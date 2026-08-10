@@ -215,32 +215,11 @@ export default function SummaryPage() {
                       </span>
                     </div>
 
-                    <div className="mt-4 space-y-2.5">
-                      <div>
-                        <div className="flex justify-between">
-                          <span>Pasto disponible</span>
-                          <strong style={{ color: details.statusColor }}>{details.grass}</strong>
-                        </div>
-                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: details.loadBarWidth,
-                              backgroundColor: details.statusColor,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-1.5">
-                        <span className="flex items-center gap-1">
-                          <LandPlot size={13} className="text-stone-500" />
-                          <strong>{paddock.animals}</strong> cabezas
-                        </span>
-                        <span>
-                          Carga <strong style={{ color: details.loadColor }}>{details.load}</strong>
-                        </span>
-                      </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <LandPlot size={13} className="text-stone-500" />
+                        <strong>{paddock.animals}</strong> cabezas
+                      </span>
                     </div>
                   </div>
 
