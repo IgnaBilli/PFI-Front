@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { LandPlot, AlertTriangle, Beef, CheckCircle2, LoaderCircle, Plus, Sprout } from 'lucide-react';
+import {
+  LandPlot,
+  AlertTriangle,
+  Beef,
+  CheckCircle2,
+  LoaderCircle,
+  Plus,
+  Sprout,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
@@ -26,8 +34,17 @@ function PaddockShapeIcon({ paddock, color }) {
       />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#161619] via-transparent to-transparent" />
       {points && (
-        <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet">
-          <polygon points={points} fill={`${color}33`} stroke={color} strokeWidth="2" strokeLinejoin="round" />
+        <svg
+          viewBox="0 0 100 100"
+          className="absolute inset-0 h-full w-full"
+          preserveAspectRatio="xMidYMid meet">
+          <polygon
+            points={points}
+            fill={`${color}33`}
+            stroke={color}
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
         </svg>
       )}
     </div>
@@ -131,7 +148,9 @@ export default function PaddocksPage() {
                   </div>
 
                   <div className="px-5 pt-3.5">
-                    <h3 className="text-[13px] font-bold text-white leading-tight">{paddock.name}</h3>
+                    <h3 className="text-[13px] font-bold text-white leading-tight">
+                      {paddock.name}
+                    </h3>
                     <p className="mt-0.5 flex items-center gap-1 text-stone-500 font-medium">
                       <LandPlot size={11} /> {paddock.hectares.toFixed(0)} ha
                     </p>
@@ -147,7 +166,10 @@ export default function PaddocksPage() {
                         <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[.04] overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all"
-                            style={{ width: details.loadBarWidth, backgroundColor: details.statusColor }}
+                            style={{
+                              width: details.loadBarWidth,
+                              backgroundColor: details.statusColor,
+                            }}
                           />
                         </div>
                       </div>

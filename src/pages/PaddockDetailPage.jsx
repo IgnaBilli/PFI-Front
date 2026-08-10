@@ -206,7 +206,10 @@ export default function PaddockDetailPage() {
   const [dmiOverride, setDmiOverride] = useState(null);
   const nutrition = dmiOverride ?? entry?.nutrition ?? null;
 
-  const status = buildPaddockStatus({ ...entry, forage: latestForage, nutrition }, paddock?.hectares);
+  const status = buildPaddockStatus(
+    { ...entry, forage: latestForage, nutrition },
+    paddock?.hectares
+  );
 
   useEffect(() => {
     setDmiOverride(null);
@@ -237,7 +240,9 @@ export default function PaddockDetailPage() {
   }, [paddock?.id]);
 
   function toggleHerdSelection(id) {
-    setSelectedHerdIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    setSelectedHerdIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
   }
 
   function toggleHerdSelectAll() {
@@ -293,7 +298,9 @@ export default function PaddockDetailPage() {
     return acc;
   }, {});
 
-  const forageValues = forageHistory.map((h) => Number(h.kg_materia_seca_ha)).filter(Number.isFinite);
+  const forageValues = forageHistory
+    .map((h) => Number(h.kg_materia_seca_ha))
+    .filter(Number.isFinite);
   const maxForage = Math.max(...forageValues, Number(latestForage?.kg_materia_seca_ha) || 0, 1);
   const forageBarPct = latestForage
     ? Math.min(100, (Number(latestForage.kg_materia_seca_ha) / maxForage) * 100)
@@ -323,7 +330,9 @@ export default function PaddockDetailPage() {
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-white">{paddock.name}</h1>
-          <p className="mt-0.5 text-[12px] font-medium text-stone-500">{paddock.hectares.toFixed(0)} ha</p>
+          <p className="mt-0.5 text-[12px] font-medium text-stone-500">
+            {paddock.hectares.toFixed(0)} ha
+          </p>
         </div>
         <span
           className="rounded-full px-2.5 py-1 text-[10px] font-bold"
@@ -352,7 +361,9 @@ export default function PaddockDetailPage() {
           <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
           <div>
             <p className="text-[12px] font-bold text-amber-400">Hay una recomendación pendiente</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-300/90">{status.recommendation}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-300/90">
+              {status.recommendation}
+            </p>
           </div>
         </div>
       )}
@@ -364,352 +375,396 @@ export default function PaddockDetailPage() {
       )}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
-      <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="font-display text-base text-white">Disponibilidad de pasto</h2>
-            <p className="mt-0.5 text-[11px] text-stone-500">
-              Medición vigente y su evolución en el tiempo (NDVI Sentinel-2).
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleGenerateForage}
-            disabled={forageGenLoading}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06] disabled:opacity-50">
-            {forageGenLoading ? <LoaderCircle size={12} className="animate-spin" /> : <Satellite size={12} />}
-            {latestForage ? 'Actualizar medición' : 'Calcular disponibilidad'}
-          </button>
-        </div>
-
-        {forageGenError && (
-          <p className="mt-3 rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">
-            {forageGenError}
-          </p>
-        )}
-
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Pasto disponible</p>
-            <p className="mt-1 text-[17px] font-bold" style={{ color: status.statusColor }}>
-              {status.grass}
-            </p>
-          </div>
-          {latestForage?.indice_ndvi != null && (
-            <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Verdor (NDVI)</p>
-              <p className="mt-1 text-[17px] font-bold text-white">{Number(latestForage.indice_ndvi).toFixed(2)}</p>
-            </div>
-          )}
-          {latestForage?.superficie_analizada_ha != null && (
-            <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Superficie analizada</p>
-              <p className="mt-1 text-[17px] font-bold text-white">
-                {Number(latestForage.superficie_analizada_ha).toFixed(1)} ha
-              </p>
-            </div>
-          )}
-        </div>
-
-        {latestForage && (
-          <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[.04]">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${forageBarPct}%`, backgroundColor: status.statusColor }}
-            />
-          </div>
-        )}
-
-        <h3 className="mt-6 text-[12px] font-bold text-stone-300">Evolución del pasto</h3>
-        <ForageTrendChart history={forageHistory} color={status.statusColor} />
-      </section>
-
-      <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h2 className="font-display text-base text-white">Demanda nutricional</h2>
-              <p className="mt-0.5 text-[11px] text-stone-500">Cuánto pasto pide hoy la hacienda de este potrero.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleRecalculateDmi}
-              disabled={dmiLoading || herd.length === 0}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06] disabled:opacity-50">
-              {dmiLoading ? <LoaderCircle size={12} className="animate-spin" /> : <Calculator size={12} />}
-              Recalcular
-            </button>
-          </div>
-
-          {dmiError && (
-            <p className="mt-3 rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">{dmiError}</p>
-          )}
-
-          {nutrition ? (
-            <>
-              <p className="mt-4 font-display text-[26px] font-bold text-white">
-                {Number(nutrition.kg_materia_seca_dia).toFixed(1)}{' '}
-                <span className="font-sans text-[13px] font-semibold text-stone-500">kg MS/día</span>
-              </p>
-              <p className="text-[11px] text-stone-500">
-                {nutrition.cantidad_animales} {nutrition.cantidad_animales === 1 ? 'animal' : 'animales'} · calculado{' '}
-                {formatShortDate(nutrition.fecha_calculo)}
-              </p>
-            </>
-          ) : (
-            <p className="mt-4 text-[11px] text-stone-500">
-              Todavía no se calculó la demanda nutricional de este potrero.
-            </p>
-          )}
-
-          {Object.keys(herdByCategory).length > 0 && (
-            <div className="mt-4 space-y-1.5 border-t border-white/[.06] pt-3.5">
-              {Object.entries(herdByCategory).map(([cat, count]) => (
-                <div key={cat} className="flex items-center justify-between text-[11px] text-stone-400">
-                  <span>{cat}</span>
-                  <strong className="text-stone-200">
-                    {count} {count === 1 ? 'cab.' : 'cab.'}
-                  </strong>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="font-display text-base text-white">Ganado asignado</h2>
-              <p className="mt-0.5 text-[11px] text-stone-500">Animales que están pastoreando en este potrero.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAddingCattle(true)}
-              disabled={mutating}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-[11px] font-bold text-black hover:bg-emerald-400 disabled:opacity-50">
-              <Plus size={13} /> Agregar ganado
-            </button>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] text-stone-500">
-              {herd.length} {herd.length === 1 ? 'animal asignado' : 'animales asignados'}
-            </p>
-            {selectedHerdIds.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
-                <span className="text-[11px] font-semibold text-emerald-400">
-                  {selectedHerdIds.length} seleccionados
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/traslado', { state: { animalIds: selectedHerdIds } })}
-                  className="flex items-center gap-1 rounded bg-white/[.08] px-2.5 py-1 text-[10px] font-bold text-stone-200 hover:bg-white/[.14]">
-                  <ArrowLeftRight size={12} /> Trasladar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedHerdIds([])}
-                  className="text-[10px] text-stone-500 hover:text-white">
-                  Limpiar
-                </button>
+        <div className="space-y-4 lg:col-span-2">
+          <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="font-display text-base text-white">Disponibilidad de pasto</h2>
+                <p className="mt-0.5 text-[11px] text-stone-500">
+                  Medición vigente y su evolución en el tiempo (NDVI Sentinel-2).
+                </p>
               </div>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={handleGenerateForage}
+                disabled={forageGenLoading}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06] disabled:opacity-50">
+                {forageGenLoading ? (
+                  <LoaderCircle size={12} className="animate-spin" />
+                ) : (
+                  <Satellite size={12} />
+                )}
+                {latestForage ? 'Actualizar medición' : 'Calcular disponibilidad'}
+              </button>
+            </div>
 
-          <div className="mt-3 grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              {herd.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-white/[.06]">
-                  <table className="w-full min-w-[420px] text-left text-[11px]">
-                    <thead className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
-                      <tr>
-                        <th className="w-8 px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={herd.length > 0 && selectedHerdIds.length === herd.length}
-                            onChange={toggleHerdSelectAll}
-                            className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                          />
-                        </th>
-                        <th className="px-3 py-2 font-bold">Caravana</th>
-                        <th className="px-3 py-2 font-bold">Categoría</th>
-                        <th className="px-3 py-2 text-right font-bold">Peso</th>
-                        <th className="px-3 py-2 font-bold">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[.05] text-stone-300">
-                      {herd.map((a) => (
-                        <tr key={a.id} className={selectedHerdIds.includes(a.id) ? 'bg-emerald-500/[0.03]' : ''}>
-                          <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedHerdIds.includes(a.id)}
-                              onChange={() => toggleHerdSelection(a.id)}
-                              className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                            />
-                          </td>
-                          <td className="px-3 py-2 font-semibold text-white">{a.caravana}</td>
-                          <td className="px-3 py-2">{a.category}</td>
-                          <td className="px-3 py-2 text-right">{a.weight}</td>
-                          <td className="px-3 py-2">{a.status}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {forageGenError && (
+              <p className="mt-3 rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">
+                {forageGenError}
+              </p>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                  Tasa de crecimiento de pasto
+                </p>
+                <p className="mt-1 text-[17px] font-bold" style={{ color: status.statusColor }}>
+                  {status.grass}
+                </p>
+              </div>
+              {latestForage?.indice_ndvi != null && (
+                <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    Verdor (NDVI)
+                  </p>
+                  <p className="mt-1 text-[17px] font-bold text-white">
+                    {Number(latestForage.indice_ndvi).toFixed(2)}
+                  </p>
+                </div>
+              )}
+              {latestForage?.superficie_analizada_ha != null && (
+                <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    Superficie analizada
+                  </p>
+                  <p className="mt-1 text-[17px] font-bold text-white">
+                    {Number(latestForage.superficie_analizada_ha).toFixed(1)} ha
+                  </p>
                 </div>
               )}
             </div>
-            <div className="md:col-span-1 md:border-l md:border-white/[.06] md:pl-4">
-              <p className="text-[11px] font-bold text-stone-300">Distribución por categoría</p>
-              <DonutChart
-                segments={Object.entries(herdByCategory).map(([category, count]) => ({
-                  key: category,
-                  label: category,
-                  value: count,
-                  color: CATEGORY_COLORS[category] || FALLBACK_CATEGORY_COLOR,
-                }))}
-                emptyMessage="Sin animales asignados todavía."
-                ariaLabel="Distribución del rodeo por categoría"
-              />
-            </div>
-          </div>
-        </section>
 
-        <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
-          <h2 className="font-display text-base text-white">Traslados recientes</h2>
-          <p className="mt-0.5 text-[11px] text-stone-500">Entradas y salidas de ganado de este potrero.</p>
-
-          {traslados.length === 0 ? (
-            <p className="mt-4 text-[11px] text-stone-500">Todavía no hay traslados registrados para este potrero.</p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {traslados.slice(0, 6).map((t) => {
-                const isEntrada = t.direccion === 'entrada';
-                const counterpartId = isEntrada ? t.id_potrero_origen : t.id_potrero_destino;
-                const counterpartName = paddockNameById.get(counterpartId) || 'potrero desconocido';
-                return (
-                  <div
-                    key={t.id_traslado}
-                    className="flex items-start gap-3 rounded-lg border border-white/[.06] bg-white/[.02] px-3.5 py-2.5">
-                    <span
-                      className="mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                      style={
-                        isEntrada
-                          ? { color: '#199e70', backgroundColor: '#199e7022' }
-                          : { color: '#d95926', backgroundColor: '#d9592622' }
-                      }>
-                      {isEntrada ? 'Entrada' : 'Salida'}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] text-stone-300">
-                        {isEntrada ? 'Desde' : 'Hacia'} <strong className="text-white">{counterpartName}</strong>
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-stone-500">
-                        {formatShortDate(t.fecha_movimiento)}
-                        {t.observaciones ? ` · ${t.observaciones}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <div className="lg:col-span-1">
-        <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
-          <h2 className="font-display text-base text-white">Polígono del potrero</h2>
-          <p className="mt-0.5 text-[11px] text-stone-500">Ubicación y forma real, tal como se ve en el mapa.</p>
-          <div className="mt-3 h-48 overflow-hidden rounded-lg border border-white/[.06]">
-            <PolygonMapCanvas
-              mapRef={mapPreviewRef}
-              isDrawing={false}
-              vertices={[]}
-              existingPolygons={[
-                { id: paddock.id, coordinates: paddock.coordinates, color: status.statusColor, label: paddock.name },
-              ]}
-              restrictTo={paddock.coordinates}
-            />
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-xl border border-white/[.06] bg-[#161619] p-5">
-          <div className="flex items-center justify-center gap-1 text-[11px] text-stone-500">
-            <MapPin size={11} />
-            {paddock.name}
-          </div>
-
-          {clima ? (
-            <>
-              {(() => {
-                const weather = describeWeather(clima);
-                const WeatherIcon = weather.Icon;
-                const temp = clima.temperatura != null ? Number(clima.temperatura) : null;
-                return (
-                  <div className="mt-4 flex items-center justify-between gap-2">
-                    <WeatherIcon size={44} strokeWidth={1.5} style={{ color: weather.color }} />
-                    <p className="font-display text-[34px] font-bold leading-none text-white">
-                      {temp != null ? `${Math.round(temp)}°` : '-'}
-                    </p>
-                    <div className="text-right">
-                      <p className="text-[13px] font-bold text-white">{weather.label}</p>
-                      {clima.humedad != null && (
-                        <p className="text-[10px] text-stone-500">
-                          Humedad {Number(clima.humedad).toFixed(0)}%
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="mt-5 space-y-3 border-t border-white/[.06] pt-4">
-                <WeatherMetricRow
-                  icon={Thermometer}
-                  color="#c98500"
-                  label="Temperatura"
-                  value={clima.temperatura}
-                  max={40}
-                  unit="°"
-                  decimals={1}
-                />
-                <WeatherMetricRow
-                  icon={CloudRain}
-                  color="#3987e5"
-                  label="Precipitación"
-                  value={clima.precipitacion}
-                  max={50}
-                  unit=" mm"
-                  decimals={1}
-                />
-                <WeatherMetricRow
-                  icon={Droplets}
-                  color="#199e70"
-                  label="Humedad"
-                  value={clima.humedad}
-                  max={100}
-                  unit="%"
+            {latestForage && (
+              <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[.04]">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${forageBarPct}%`, backgroundColor: status.statusColor }}
                 />
               </div>
+            )}
 
-              <p className="mt-4 text-center text-[10px] text-stone-600">
-                Último dato registrado{clima.fecha ? ` · ${formatShortDate(clima.fecha)}` : ''}.
-              </p>
-            </>
-          ) : (
-            <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/[.08] px-4 py-6 text-center">
-              <span className="grid size-14 place-items-center rounded-full bg-white/[.04] text-stone-600">
-                <CloudSun size={28} strokeWidth={1.5} />
-              </span>
-              <p className="text-[11px] text-stone-500">
-                Todavía no hay datos climáticos para este potrero. Se generan junto con la disponibilidad de pasto —
-                usá &quot;Calcular disponibilidad&quot; arriba.
-              </p>
+            <h3 className="mt-6 text-[12px] font-bold text-stone-300">Evolución del pasto</h3>
+            <ForageTrendChart history={forageHistory} color={status.statusColor} />
+          </section>
+
+          <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="font-display text-base text-white">Demanda nutricional</h2>
+                <p className="mt-0.5 text-[11px] text-stone-500">
+                  Cuánto pasto pide hoy la hacienda de este potrero.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRecalculateDmi}
+                disabled={dmiLoading || herd.length === 0}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06] disabled:opacity-50">
+                {dmiLoading ? (
+                  <LoaderCircle size={12} className="animate-spin" />
+                ) : (
+                  <Calculator size={12} />
+                )}
+                Recalcular
+              </button>
             </div>
-          )}
-        </section>
-      </div>
+
+            {dmiError && (
+              <p className="mt-3 rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">
+                {dmiError}
+              </p>
+            )}
+
+            {nutrition ? (
+              <>
+                <p className="mt-4 font-display text-[26px] font-bold text-white">
+                  {Number(nutrition.kg_materia_seca_dia).toFixed(1)}{' '}
+                  <span className="font-sans text-[13px] font-semibold text-stone-500">
+                    kg MS/día
+                  </span>
+                </p>
+                <p className="text-[11px] text-stone-500">
+                  {nutrition.cantidad_animales}{' '}
+                  {nutrition.cantidad_animales === 1 ? 'animal' : 'animales'} · calculado{' '}
+                  {formatShortDate(nutrition.fecha_calculo)}
+                </p>
+              </>
+            ) : (
+              <p className="mt-4 text-[11px] text-stone-500">
+                Todavía no se calculó la demanda nutricional de este potrero.
+              </p>
+            )}
+
+            {Object.keys(herdByCategory).length > 0 && (
+              <div className="mt-4 space-y-1.5 border-t border-white/[.06] pt-3.5">
+                {Object.entries(herdByCategory).map(([cat, count]) => (
+                  <div
+                    key={cat}
+                    className="flex items-center justify-between text-[11px] text-stone-400">
+                    <span>{cat}</span>
+                    <strong className="text-stone-200">
+                      {count} {count === 1 ? 'cab.' : 'cab.'}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="font-display text-base text-white">Ganado asignado</h2>
+                <p className="mt-0.5 text-[11px] text-stone-500">
+                  Animales que están pastoreando en este potrero.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddingCattle(true)}
+                disabled={mutating}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-[11px] font-bold text-black hover:bg-emerald-400 disabled:opacity-50">
+                <Plus size={13} /> Agregar ganado
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-stone-500">
+                {herd.length} {herd.length === 1 ? 'animal asignado' : 'animales asignados'}
+              </p>
+              {selectedHerdIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+                  <span className="text-[11px] font-semibold text-emerald-400">
+                    {selectedHerdIds.length} seleccionados
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/traslado', { state: { animalIds: selectedHerdIds } })}
+                    className="flex items-center gap-1 rounded bg-white/[.08] px-2.5 py-1 text-[10px] font-bold text-stone-200 hover:bg-white/[.14]">
+                    <ArrowLeftRight size={12} /> Trasladar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedHerdIds([])}
+                    className="text-[10px] text-stone-500 hover:text-white">
+                    Limpiar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-2">
+                {herd.length > 0 && (
+                  <div className="overflow-x-auto rounded-lg border border-white/[.06]">
+                    <table className="w-full min-w-[420px] text-left text-[11px]">
+                      <thead className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
+                        <tr>
+                          <th className="w-8 px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={herd.length > 0 && selectedHerdIds.length === herd.length}
+                              onChange={toggleHerdSelectAll}
+                              className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                            />
+                          </th>
+                          <th className="px-3 py-2 font-bold">Caravana</th>
+                          <th className="px-3 py-2 font-bold">Categoría</th>
+                          <th className="px-3 py-2 text-right font-bold">Peso</th>
+                          <th className="px-3 py-2 font-bold">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[.05] text-stone-300">
+                        {herd.map((a) => (
+                          <tr
+                            key={a.id}
+                            className={
+                              selectedHerdIds.includes(a.id) ? 'bg-emerald-500/[0.03]' : ''
+                            }>
+                            <td className="px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedHerdIds.includes(a.id)}
+                                onChange={() => toggleHerdSelection(a.id)}
+                                className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
+                              />
+                            </td>
+                            <td className="px-3 py-2 font-semibold text-white">{a.caravana}</td>
+                            <td className="px-3 py-2">{a.category}</td>
+                            <td className="px-3 py-2 text-right">{a.weight}</td>
+                            <td className="px-3 py-2">{a.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="md:col-span-1 md:border-l md:border-white/[.06] md:pl-4">
+                <p className="text-[11px] font-bold text-stone-300">Distribución por categoría</p>
+                <DonutChart
+                  segments={Object.entries(herdByCategory).map(([category, count]) => ({
+                    key: category,
+                    label: category,
+                    value: count,
+                    color: CATEGORY_COLORS[category] || FALLBACK_CATEGORY_COLOR,
+                  }))}
+                  emptyMessage="Sin animales asignados todavía."
+                  ariaLabel="Distribución del rodeo por categoría"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <h2 className="font-display text-base text-white">Traslados recientes</h2>
+            <p className="mt-0.5 text-[11px] text-stone-500">
+              Entradas y salidas de ganado de este potrero.
+            </p>
+
+            {traslados.length === 0 ? (
+              <p className="mt-4 text-[11px] text-stone-500">
+                Todavía no hay traslados registrados para este potrero.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {traslados.slice(0, 6).map((t) => {
+                  const isEntrada = t.direccion === 'entrada';
+                  const counterpartId = isEntrada ? t.id_potrero_origen : t.id_potrero_destino;
+                  const counterpartName =
+                    paddockNameById.get(counterpartId) || 'potrero desconocido';
+                  return (
+                    <div
+                      key={t.id_traslado}
+                      className="flex items-start gap-3 rounded-lg border border-white/[.06] bg-white/[.02] px-3.5 py-2.5">
+                      <span
+                        className="mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                        style={
+                          isEntrada
+                            ? { color: '#199e70', backgroundColor: '#199e7022' }
+                            : { color: '#d95926', backgroundColor: '#d9592622' }
+                        }>
+                        {isEntrada ? 'Entrada' : 'Salida'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] text-stone-300">
+                          {isEntrada ? 'Desde' : 'Hacia'}{' '}
+                          <strong className="text-white">{counterpartName}</strong>
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-stone-500">
+                          {formatShortDate(t.fecha_movimiento)}
+                          {t.observaciones ? ` · ${t.observaciones}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="lg:col-span-1">
+          <section className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <h2 className="font-display text-base text-white">Polígono del potrero</h2>
+            <p className="mt-0.5 text-[11px] text-stone-500">
+              Ubicación y forma real, tal como se ve en el mapa.
+            </p>
+            <div className="mt-3 h-48 overflow-hidden rounded-lg border border-white/[.06]">
+              <PolygonMapCanvas
+                mapRef={mapPreviewRef}
+                isDrawing={false}
+                vertices={[]}
+                existingPolygons={[
+                  {
+                    id: paddock.id,
+                    coordinates: paddock.coordinates,
+                    color: status.statusColor,
+                    label: paddock.name,
+                  },
+                ]}
+                restrictTo={paddock.coordinates}
+              />
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-xl border border-white/[.06] bg-[#161619] p-5">
+            <div className="flex items-center justify-center gap-1 text-[11px] text-stone-500">
+              <MapPin size={11} />
+              {paddock.name}
+            </div>
+
+            {clima ? (
+              <>
+                {(() => {
+                  const weather = describeWeather(clima);
+                  const WeatherIcon = weather.Icon;
+                  const temp = clima.temperatura != null ? Number(clima.temperatura) : null;
+                  return (
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <WeatherIcon size={44} strokeWidth={1.5} style={{ color: weather.color }} />
+                      <p className="font-display text-[34px] font-bold leading-none text-white">
+                        {temp != null ? `${Math.round(temp)}°` : '-'}
+                      </p>
+                      <div className="text-right">
+                        <p className="text-[13px] font-bold text-white">{weather.label}</p>
+                        {clima.humedad != null && (
+                          <p className="text-[10px] text-stone-500">
+                            Humedad {Number(clima.humedad).toFixed(0)}%
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="mt-5 space-y-3 border-t border-white/[.06] pt-4">
+                  <WeatherMetricRow
+                    icon={Thermometer}
+                    color="#c98500"
+                    label="Temperatura"
+                    value={clima.temperatura}
+                    max={40}
+                    unit="°"
+                    decimals={1}
+                  />
+                  <WeatherMetricRow
+                    icon={CloudRain}
+                    color="#3987e5"
+                    label="Precipitación"
+                    value={clima.precipitacion}
+                    max={50}
+                    unit=" mm"
+                    decimals={1}
+                  />
+                  <WeatherMetricRow
+                    icon={Droplets}
+                    color="#199e70"
+                    label="Humedad"
+                    value={clima.humedad}
+                    max={100}
+                    unit="%"
+                  />
+                </div>
+
+                <p className="mt-4 text-center text-[10px] text-stone-600">
+                  Último dato registrado{clima.fecha ? ` · ${formatShortDate(clima.fecha)}` : ''}.
+                </p>
+              </>
+            ) : (
+              <div className="mt-4 flex flex-col items-center gap-2 rounded-lg border border-dashed border-white/[.08] px-4 py-6 text-center">
+                <span className="grid size-14 place-items-center rounded-full bg-white/[.04] text-stone-600">
+                  <CloudSun size={28} strokeWidth={1.5} />
+                </span>
+                <p className="text-[11px] text-stone-500">
+                  Todavía no hay datos climáticos para este potrero. Se generan junto con la
+                  disponibilidad de pasto — usá &quot;Calcular disponibilidad&quot; arriba.
+                </p>
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
