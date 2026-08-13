@@ -29,6 +29,22 @@ export const CATEGORY_COLORS = {
 }
 export const FALLBACK_CATEGORY_COLOR = '#898781'
 
+export const STATUS_API_TO_UI = {
+  L: 'Lactando',
+  P: 'Preñada',
+  B: 'Seca',
+  N: 'Normal',
+  'P/L': 'Preñada y Lactando',
+  'B/L': 'Seca y Lactando',
+  'N/P': 'Preñada (no lactante)',
+  DESCONOCIDO: '-',
+}
+
+export function formatPhysiologicalStatus(status) {
+  if (!status || status === 'DESCONOCIDO') return '-'
+  return STATUS_API_TO_UI[status] ?? status
+}
+
 // Sexo implícito por categoría: Vaca/Vaquillona son siempre hembra, Novillo/Toro
 // siempre macho. TERNERO queda afuera a propósito (Ternero/Ternera admite los dos).
 export const CATEGORY_SEX = {

@@ -23,7 +23,12 @@ import { useAuth } from '../context/AuthContext.jsx';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
-import { withAnimalCounts } from '../services/mappers.js';
+import {
+  CATEGORY_COLORS,
+  FALLBACK_CATEGORY_COLOR,
+  formatPhysiologicalStatus,
+  withAnimalCounts,
+} from '../services/mappers.js';
 import {
   createForageEstimate,
   createNutritionEstimate,
@@ -32,7 +37,6 @@ import {
   fetchPaddockTraslados,
 } from '../services/analyticsService.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
-import { CATEGORY_COLORS, FALLBACK_CATEGORY_COLOR } from '../services/mappers.js';
 import { formatShortDate } from '../utils/format.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
@@ -586,7 +590,9 @@ export default function PaddockDetailPage() {
                             <td className="px-3 py-2 font-semibold text-white">{a.caravana}</td>
                             <td className="px-3 py-2">{a.category}</td>
                             <td className="px-3 py-2 text-right">{a.weight}</td>
-                            <td className="px-3 py-2">{a.status}</td>
+                            <td className="px-3 py-2">
+                              {formatPhysiologicalStatus(a.status)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

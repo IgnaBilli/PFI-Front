@@ -33,7 +33,7 @@ const STATUS_OPTIONS = [
   { value: 'P/L', label: 'P/L: Preñada y Lactando simultáneamente', fullText: 'Preñada y Lactando' },
   { value: 'B/L', label: 'B/L: Seca y Lactando (o transiciones)', fullText: 'Seca y Lactando' },
   { value: 'N/P', label: 'N/P: No lactante y Preñada', fullText: 'Preñada (no lactante)' },
-  { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado', fullText: 'Desconocido' },
+  { value: 'DESCONOCIDO', label: 'DESCONOCIDO: Sin registro de estado', fullText: '-' },
 ];
 
 export default function CattlePage() {

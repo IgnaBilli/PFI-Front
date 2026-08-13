@@ -5,6 +5,7 @@ import {
   CATEGORY_OPTIONS,
   CATEGORY_SEX,
   WEIGHT_RANGE_BY_CATEGORY,
+  formatPhysiologicalStatus,
 } from '../services/mappers.js';
 import { createNutritionEstimate } from '../services/analyticsService.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -377,9 +378,9 @@ export default function AddCattleModal({
                   </div>
                 )}
 
-                <div className="mt-3 overflow-x-auto rounded-lg border border-white/[.06]">
+                <div className="mt-3 max-h-52 overflow-auto rounded-lg border border-white/[.06]">
                   <table className="w-full min-w-[500px] text-left text-[11px]">
-                    <thead className="border-b border-white/[.06] text-[10px] uppercase tracking-wider text-stone-500">
+                    <thead className="sticky top-0 z-10 border-b border-white/[.06] bg-[#161619] text-[10px] uppercase tracking-wider text-stone-500 shadow-sm">
                       <tr>
                         <th className="px-3 py-2 font-bold">Caravana</th>
                         <th className="px-3 py-2 font-bold">Categoría</th>
@@ -394,13 +395,15 @@ export default function AddCattleModal({
                       {herdRows.map((animal) => {
                         const prediction = dmiByAnimalId.get(String(animal.id));
                         return (
-                          <tr key={animal.id}>
+                          <tr key={animal.id} className="hover:bg-white/[.02] transition-colors">
                             <td className="px-3 py-2 font-semibold text-white">{animal.caravana}</td>
                             <td className="px-3 py-2">{animal.category}</td>
                             <td className="px-3 py-2">{animal.sex === 'M' ? 'Macho' : 'Hembra'}</td>
                             <td className="px-3 py-2 text-right">{animal.weight}</td>
                             <td className="px-3 py-2 text-right">{animal.cc}</td>
-                            <td className="px-3 py-2">{animal.status}</td>
+                            <td className="px-3 py-2">
+                              {formatPhysiologicalStatus(animal.status)}
+                            </td>
                             <td className="px-3 py-2 text-right">
                               {prediction ? `${prediction.dmi_kg_dia.toFixed(2)} kg/día` : '-'}
                             </td>
@@ -427,7 +430,7 @@ export default function AddCattleModal({
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[120vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
         {content}
       </div>
     </div>
