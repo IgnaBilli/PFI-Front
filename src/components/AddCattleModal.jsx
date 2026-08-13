@@ -10,6 +10,7 @@ import {
 import { createNutritionEstimate } from '../services/analyticsService.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { generateCaravanas } from '../utils/caravana.js';
+import vacaSinFondo from '../../images/vacaSinFondo.png';
 
 const WEIGHT_RANGE_TOLERANCE_KG = 5;
 
@@ -192,6 +193,14 @@ export default function AddCattleModal({
           className="rounded-lg p-1.5 text-stone-500 hover:bg-white/[.05] hover:text-white">
           <X size={16} />
         </button>
+      </div>
+
+      <div className="flex justify-center pt-3 pb-1">
+        <img
+          src={vacaSinFondo}
+          alt="Vaca"
+          className="h-28 w-auto object-contain drop-shadow-lg"
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-[12px]">
