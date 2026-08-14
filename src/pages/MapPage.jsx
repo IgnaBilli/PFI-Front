@@ -24,7 +24,7 @@ import PlaceSearchBar from '../components/PlaceSearchBar.jsx';
 import { buildPaddockPayload, coordsToGeoJsonPolygon, geoJsonPolygonToCoords, withAnimalCounts } from '../services/mappers.js';
 import { createPaddock, deletePaddock, updatePaddock } from '../services/paddockService.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
-import { updateEstancia } from '../services/estanciaService.js';
+import { deleteEstancia, updateEstancia } from '../services/estanciaService.js';
 import { ApiError } from '../services/api.js';
 
 export default function MapPage() {
@@ -46,6 +46,7 @@ export default function MapPage() {
   const [potreroMode, setPotreroMode] = useState('home'); // 'home' | 'draw' (solo aplica si editMode === 'potrero' && !editingId)
   const [mutating, setMutating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [estanciaDeleteConfirmation, setEstanciaDeleteConfirmation] = useState(null);
   const [addingToPaddock, setAddingToPaddock] = useState(null);
   const [selectedPaddock, setSelectedPaddock] = useState(null);
   const mapRef = useRef(null);
@@ -330,6 +331,32 @@ export default function MapPage() {
     }
   }
 
+  async function confirmEstanciaDelete() {
+    if (!estanciaId || !estanciaDeleteConfirmation) return;
+    const force = estanciaDeleteConfirmation.requiresConfirmation === true;
+
+    setMutating(true);
+    setActionError('');
+    try {
+      await deleteEstancia(estanciaId, { confirm: force });
+      setEstanciaDeleteConfirmation(null);
+      await refreshEstancia();
+    } catch (err) {
+      if (!force && err instanceof ApiError && err.status === 409 && err.data?.requiresConfirmation) {
+        setEstanciaDeleteConfirmation({
+          requiresConfirmation: true,
+          potrerosAfectados: Number(err.data.potrerosAfectados) || 0,
+          ganadoAfectado: Number(err.data.ganadoAfectado) || 0,
+        });
+      } else {
+        setActionError(err.message || 'No se pudo eliminar la estancia.');
+        setEstanciaDeleteConfirmation(null);
+      }
+    } finally {
+      setMutating(false);
+    }
+  }
+
   const outlinePolygon = estancia?.geom
     ? { coordinates: geoJsonPolygonToCoords(estancia.geom), label: estancia.nombre }
     : null;
@@ -365,6 +392,28 @@ export default function MapPage() {
         loading={mutating}
         onConfirm={confirmForceDelete}
         onCancel={() => setPendingDeleteId(null)}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(estanciaDeleteConfirmation)}
+        title={
+          estanciaDeleteConfirmation?.requiresConfirmation
+            ? 'La estancia tiene datos asociados'
+            : 'Eliminar estancia'
+        }
+        message={
+          estanciaDeleteConfirmation?.requiresConfirmation
+            ? `También se darán de baja ${estanciaDeleteConfirmation.potrerosAfectados} ${estanciaDeleteConfirmation.potrerosAfectados === 1 ? 'potrero' : 'potreros'} y ${estanciaDeleteConfirmation.ganadoAfectado} ${estanciaDeleteConfirmation.ganadoAfectado === 1 ? 'animal' : 'animales'}. Esta acción no se puede deshacer.`
+            : `¿Querés eliminar ${estancia?.nombre || 'esta estancia'}? Esta acción no se puede deshacer.`
+        }
+        confirmLabel={
+          estanciaDeleteConfirmation?.requiresConfirmation
+            ? 'Eliminar todo'
+            : 'Eliminar estancia'
+        }
+        danger
+        loading={mutating}
+        onConfirm={confirmEstanciaDelete}
+        onCancel={() => setEstanciaDeleteConfirmation(null)}
       />
 
       <button
@@ -561,6 +610,16 @@ export default function MapPage() {
               onClick={openDrawPaddock}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[.03] py-3 text-[12px] font-bold text-stone-300 hover:bg-white/[.06]">
               <Plus size={14} /> Dibujar potrero
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActionError('');
+                setEstanciaDeleteConfirmation({ requiresConfirmation: false });
+              }}
+              disabled={mutating}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[.06] py-3 text-[12px] font-bold text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+              <Trash2 size={14} /> Eliminar estancia
             </button>
           </div>
         ) : editMode === 'potrero' && !editingId && potreroMode === 'home' ? null : (
