@@ -16,9 +16,9 @@ import { ARGENTINA_CENTER, COLORS } from '../utils/mapConstants.js'
 
 const VERTEX_ICON = divIcon({
   className: '',
-  html: '<div style="width:14px;height:14px;border-radius:50%;background:#ffffff;border:2px solid #0b0b0c;box-shadow:0 0 0 1px rgba(0,0,0,.35);cursor:grab;"></div>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
+  html: '<div style="width:44px;height:44px;display:grid;place-items:center;cursor:grab;"><span style="display:block;width:16px;height:16px;border-radius:50%;background:#eee5d7;border:2px solid #121614;box-shadow:0 0 0 1px rgba(0,0,0,.35);"></span></div>',
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
 })
 
 function MapClickHandler({ enabled, onAdd }) {
@@ -99,6 +99,7 @@ export default function PolygonMapCanvas({
 }) {
   return (
     <MapContainer
+      aria-label={isDrawing ? 'Mapa para dibujar el polígono' : 'Mapa de la estancia y sus potreros'}
       center={center}
       zoom={zoom}
       minZoom={minZoom}
@@ -126,7 +127,7 @@ export default function PolygonMapCanvas({
         <Polygon
           positions={outlinePolygon.coordinates.map(({ latitude, longitude }) => [latitude, longitude])}
           pathOptions={{
-            color: '#ffffff',
+            color: '#ddd0bc',
             fillOpacity: 0,
             weight: 2.5,
             dashArray: '8 8',
@@ -171,7 +172,7 @@ export default function PolygonMapCanvas({
       {vertices.length >= 2 && (
         <Polyline
           positions={vertices.map(({ latitude, longitude }) => [latitude, longitude])}
-          pathOptions={{ color: '#ffffff', weight: 4, opacity: 0.9 }}
+          pathOptions={{ color: '#ddd0bc', weight: 4, opacity: 0.9 }}
         />
       )}
       {vertices.length >= 3 && (
@@ -180,7 +181,7 @@ export default function PolygonMapCanvas({
           pathOptions={
             invalid
               ? { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.25, weight: 2.5 }
-              : { color: '#ffffff', fillColor: '#888888', fillOpacity: 0.25, weight: 2 }
+              : { color: '#ddd0bc', fillColor: '#245746', fillOpacity: 0.25, weight: 2 }
           }
         />
       )}
@@ -200,6 +201,7 @@ export default function PolygonMapCanvas({
           key={`vertex-${index}`}
           position={[latitude, longitude]}
           icon={VERTEX_ICON}
+          alt={`Vértice ${index + 1}`}
           draggable={Boolean(onVertexDrag)}
           eventHandlers={
             onVertexDrag
@@ -221,7 +223,7 @@ export default function PolygonMapCanvas({
         <CircleMarker
           center={[selectedPlace.lat, selectedPlace.lng]}
           radius={8}
-          pathOptions={{ color: '#ffffff', fillColor: '#52525b', fillOpacity: 1, weight: 3 }}>
+          pathOptions={{ color: '#ddd0bc', fillColor: '#245746', fillOpacity: 1, weight: 3 }}>
           <Tooltip permanent direction="bottom" className="paddock-label">
             {selectedPlace.name.split(',')[0]}
           </Tooltip>

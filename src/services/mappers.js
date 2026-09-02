@@ -21,13 +21,13 @@ export const CATEGORY_OPTIONS = Object.entries(CATEGORY_API_TO_UI).map(([value, 
 // pantalla (ver mapCattleFromApi); se resuelve por CATEGORY_API_TO_UI cuando
 // el dato de origen trae el código crudo (p. ej. analíticas de la estancia).
 export const CATEGORY_COLORS = {
-  Vaca: '#3987e5',
-  Vaquilla: '#d95926',
-  Novillo: '#199e70',
-  Toro: '#c98500',
-  'Ternero/Ternera': '#d55181',
+  Vaca: '#4a846d',
+  Vaquilla: '#d8aa62',
+  Novillo: '#7f9f8b',
+  Toro: '#b47755',
+  'Ternero/Ternera': '#c99b83',
 }
-export const FALLBACK_CATEGORY_COLOR = '#898781'
+export const FALLBACK_CATEGORY_COLOR = '#8f8676'
 
 export const STATUS_API_TO_UI = {
   L: 'Lactando',

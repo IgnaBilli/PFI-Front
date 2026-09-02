@@ -1,7 +1,8 @@
-import { ArrowRight, CheckCircle2, Eye, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, User } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import Logo from '../components/Logo.jsx';
 
 import bgImage from '../../images/image.jpg';
 
@@ -38,43 +39,38 @@ export default function AuthPage({ mode }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#0b0b0c] text-stone-200 lg:grid lg:grid-cols-[1.08fr_.92fr] text-sm">
-      <section className="relative hidden min-h-screen overflow-hidden bg-[#0f0f11] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+    <main className="min-h-screen bg-forest-950 text-sand-200 lg:grid lg:grid-cols-[1.05fr_.95fr] text-sm">
+      <section className="relative hidden min-h-screen overflow-hidden bg-forest-900 p-12 text-sand-100 lg:flex lg:flex-col lg:justify-between" aria-label="TerraBovina">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: `url(${bgImage})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f11]/60 via-[#0f0f11]/30 to-transparent" />
-        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-forest-950 via-forest-950/40 to-forest-900/20" />
+        <Logo size={150} className="relative" />
         <div className="relative max-w-xl animate-rise">
-          <p className="mb-5 text-xs font-bold uppercase tracking-[.28em] text-stone-400">
-            El campo, mejor medido
-          </p>
-          <h1 className="font-display text-5xl leading-[1.05]">Cada límite cuenta una historia.</h1>
-          <p className="mt-5 max-w-md text-sm leading-6 text-white/50">
+          <h1 className="max-w-lg text-5xl font-extrabold leading-[1.06] tracking-[-.035em]">Cada límite cuenta una historia.</h1>
+          <p className="mt-5 max-w-md text-base leading-7 text-sand-200">
             Dibujá, organizá y consultá tus potreros desde una única vista territorial.
           </p>
         </div>
-        <p className="relative text-sm text-white/40">Plataforma de gestión territorial</p>
+        <p className="relative text-xs font-semibold uppercase tracking-[.16em] text-sand-300">Gestión ganadera con perspectiva territorial</p>
       </section>
 
-      <section className="flex min-h-screen items-center justify-center border-l border-white/[.05] bg-[#0b0b0c] px-6 py-10 sm:px-12">
+      <section className="flex min-h-screen items-center justify-center border-l border-sand-100/10 bg-forest-950 px-5 py-10 sm:px-12" aria-labelledby="auth-title">
         <div className="w-full max-w-sm animate-rise">
-          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-stone-400">
-            {isRegister ? 'Creá tu cuenta' : 'Bienvenido de nuevo'}
-          </p>
-          <h2 className="mt-2 font-display text-3xl text-white sm:text-4xl">
+          <Logo size={132} className="mb-10 lg:hidden" />
+          <h2 id="auth-title" className="text-3xl font-extrabold tracking-[-.025em] text-sand-100 sm:text-4xl">
             {isRegister ? 'Empezá a mapear.' : 'Ingresá a tu campo.'}
           </h2>
-          <p className="mt-3 text-[12px] leading-5 text-stone-600">
+          <p className="mt-3 text-sm leading-6 text-sand-500">
             {isRegister
               ? 'Completá tus datos para crear un espacio de trabajo.'
               : 'Usá tus credenciales para continuar.'}
           </p>
 
           {!isRegister && location.state?.registered && (
-            <p className="mt-5 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-emerald-400">
-              <CheckCircle2 size={15} className="shrink-0" /> Cuenta creada con éxito. Ingresá con tus
+            <p role="status" className="mt-5 flex items-center gap-2 rounded-lg border border-brand-400/25 bg-brand-500/10 px-3.5 py-3 text-xs font-semibold text-brand-400">
+              <CheckCircle2 size={16} className="shrink-0" aria-hidden="true" /> Cuenta creada con éxito. Ingresá con tus
               credenciales.
             </p>
           )}
@@ -85,60 +81,76 @@ export default function AuthPage({ mode }) {
                 icon={User}
                 label="Nombre completo"
                 type="text"
+                name="name"
+                autoComplete="name"
                 placeholder="Juan Pérez"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'auth-error' : undefined}
               />
             )}
             <Field
               icon={Mail}
               label="Correo electrónico"
               type="email"
+              name="email"
+              autoComplete={isRegister ? 'email' : 'username'}
               placeholder="nombre@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'auth-error' : undefined}
             />
             <Field
               icon={LockKeyhole}
               label="Contraseña"
               type={showPassword ? 'text' : 'password'}
+              name="password"
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
               placeholder="Mínimo 8 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'auth-error' : undefined}
               action={
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
+                  aria-pressed={showPassword}
+                  className="app-icon-button !min-h-8 !w-8 !border-0 !bg-transparent"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
-                  <Eye size={18} />
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               }
             />
 
             {error && (
-              <p className="rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+              <p id="auth-error" role="alert" className="app-error text-xs font-semibold">
                 {error}
               </p>
             )}
 
             <button
+              type="submit"
               disabled={loading}
-              className="group flex w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-[12px] font-bold text-black transition hover:bg-stone-250 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70">
+              aria-label={loading ? (isRegister ? 'Creando cuenta' : 'Ingresando') : undefined}
+              className="app-button-primary group w-full disabled:opacity-60">
               {loading ? (
-                <LoaderCircle size={18} className="animate-spin" />
+                <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />
               ) : (
                 <>
                   {isRegister ? 'Crear cuenta' : 'Ingresar'}
-                  <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                  <ArrowRight size={18} aria-hidden="true" className="transition-transform group-hover:translate-x-1" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="mt-7 text-center text-[12px] text-stone-600">
+          <p className="mt-7 text-center text-xs text-sand-500">
             {isRegister ? '¿Ya tenés una cuenta?' : '¿Todavía no tenés una cuenta?'}{' '}
             <Link
-              className="font-bold text-white hover:underline"
+              className="font-bold text-sand-100 underline-offset-4 hover:underline"
               to={isRegister ? '/login' : '/registro'}>
               {isRegister ? 'Ingresá' : 'Registrate'}
             </Link>
@@ -150,18 +162,20 @@ export default function AuthPage({ mode }) {
 }
 
 function Field({ icon: Icon, label, action, ...inputProps }) {
+  const fieldId = `auth-${inputProps.name}`;
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[10px] font-semibold text-stone-400">{label}</span>
-      <span className="flex items-center gap-3 rounded-lg border border-white/[.08] bg-[#121925] px-3 transition focus-within:border-stone-500">
-        <Icon size={15} className="shrink-0 text-stone-600" />
+    <div>
+      <label htmlFor={fieldId} className="app-label">{label}</label>
+      <div className="relative">
+        <Icon size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sand-500" />
         <input
+          id={fieldId}
           required
-          className="min-w-0 flex-1 bg-transparent py-3 text-[11px] text-white outline-none placeholder:text-stone-700"
+          className={`app-field pl-10 ${action ? 'pr-12' : ''}`}
           {...inputProps}
         />
-        {action && <span className="text-stone-700">{action}</span>}
-      </span>
-    </label>
+        {action && <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-sand-500">{action}</span>}
+      </div>
+    </div>
   );
 }

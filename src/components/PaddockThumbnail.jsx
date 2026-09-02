@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import PolygonMapCanvas from './PolygonMapCanvas.jsx';
 import { paddedBoundsPoints } from '../utils/geo.js';
 
-const OUTLINE_COLOR = '#3987e5';
+const OUTLINE_COLOR = '#ddd0bc';
 
 // Mini-mapa de solo lectura recortado a un único potrero (satélite real +
 // su polígono), sin controles de zoom/paneo — pensado para tarjetas chicas.

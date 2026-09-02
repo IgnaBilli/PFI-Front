@@ -13,41 +13,63 @@ export default function PlaceSearchBar({
   clearSearch,
   className = '',
 }) {
+  const resultsId = 'place-search-results';
+  const errorId = 'place-search-error';
+
   return (
     <div className={className}>
       <form
         onSubmit={searchPlace}
-        className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0f0f11]/95 px-3.5 shadow-2xl backdrop-blur">
-        <Search size={14} className="shrink-0 text-white" />
+        role="search"
+        aria-label="Buscar un lugar en el mapa"
+        className="app-panel flex items-center gap-1 bg-[var(--surface)] p-1 shadow-[var(--shadow-raised)]">
+        <label htmlFor="place-search-input" className="sr-only">Localidad o dirección</label>
         <input
+          id="place-search-input"
           value={placeQuery}
           onChange={(event) => setPlaceQuery(event.target.value)}
           placeholder="Buscar localidad o dirección..."
-          aria-label="Buscar localidad o dirección"
-          className="min-w-0 flex-1 bg-transparent py-3 text-[12px] text-stone-250 outline-none placeholder:text-stone-750"
+          aria-controls={placeResults.length > 1 ? resultsId : undefined}
+          aria-describedby={placeError ? errorId : undefined}
+          aria-expanded={placeResults.length > 1}
+          autoComplete="off"
+          className="min-h-11 min-w-0 flex-1 bg-transparent px-3 text-base text-[var(--text)] outline-none placeholder:text-[var(--text-muted)] sm:text-sm"
         />
-        {searching && <LoaderCircle size={14} className="animate-spin text-stone-500" />}
+        {searching && (
+          <span role="status" className="grid size-11 shrink-0 place-items-center text-[var(--text-muted)]">
+            <LoaderCircle size={17} aria-hidden="true" className="animate-spin" />
+            <span className="sr-only">Buscando lugares</span>
+          </span>
+        )}
         {placeQuery && !searching && (
-          <button type="button" onClick={clearSearch} aria-label="Limpiar búsqueda" className="text-stone-600 hover:text-stone-300">
-            <X size={14} />
+          <button type="button" onClick={clearSearch} aria-label="Limpiar búsqueda" className="app-icon-button shrink-0 border-0 bg-transparent">
+            <X size={17} aria-hidden="true" />
           </button>
         )}
+        <button
+          type="submit"
+          aria-label="Buscar lugar"
+          disabled={searching || placeQuery.trim().length < 3}
+          className="app-icon-button shrink-0 border-0 bg-[var(--accent)] text-[var(--accent-ink)] disabled:opacity-45">
+          <Search size={17} aria-hidden="true" />
+        </button>
       </form>
       {placeResults.length > 1 && (
-        <div className="mt-1 overflow-hidden rounded-lg border border-white/10 bg-[#0f0f11] shadow-2xl">
+        <div id={resultsId} aria-label="Resultados de lugares" className="app-panel mt-1 max-h-[min(45dvh,18rem)] overflow-y-auto shadow-[var(--shadow-raised)]">
           {placeResults.map((place) => (
             <button
+              type="button"
               key={place.place_id}
               onClick={() => goToPlace(place)}
-              className="flex w-full items-start gap-2 border-b border-white/[.05] px-3.5 py-2.5 text-left text-[11px] leading-4 text-stone-400 last:border-0 hover:bg-white/[.04] hover:text-stone-200">
-              <MapPin size={13} className="mt-0.5 shrink-0 text-white" />
-              {place.display_name}
+              className="flex min-h-11 w-full items-start gap-2 border-b border-[var(--border)] px-3.5 py-3 text-left text-sm leading-5 text-[var(--text-soft)] last:border-0 hover:bg-white/[.04] hover:text-[var(--text)]">
+              <MapPin size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--text)]" />
+              <span>{place.display_name}</span>
             </button>
           ))}
         </div>
       )}
       {placeError && (
-        <p className="mt-1 rounded-md bg-[#0f0f11] px-3.5 py-2.5 text-[11px] text-stone-400 shadow-xl">
+        <p id={errorId} role="alert" aria-live="assertive" className="app-error mt-1 text-sm shadow-xl">
           {placeError}
         </p>
       )}

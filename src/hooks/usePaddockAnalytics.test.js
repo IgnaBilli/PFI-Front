@@ -1,9 +1,52 @@
-import { describe, expect, it } from 'vitest';
-import { buildPaddockStatus } from './usePaddockAnalytics.js';
+import { renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  fetchActiveRecommendation,
+  fetchLatestForage,
+  fetchLatestNutrition,
+} from '../services/analyticsService.js';
+import usePaddockAnalytics, { buildPaddockStatus } from './usePaddockAnalytics.js';
+
+vi.mock('../services/analyticsService.js', () => ({
+  fetchActiveRecommendation: vi.fn(),
+  fetchLatestForage: vi.fn(),
+  fetchLatestNutrition: vi.fn(),
+}));
+
+describe('usePaddockAnalytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retains successful card data and exposes errors by paddock and source', async () => {
+    const failure = new Error('nutrition failed');
+    const forage = { kg_materia_seca_ha: 100 };
+    const recommendation = { prioridad: 'MONITOREAR' };
+    fetchLatestForage.mockResolvedValue(forage);
+    fetchLatestNutrition.mockRejectedValue(failure);
+    fetchActiveRecommendation.mockResolvedValue(recommendation);
+
+    const { result } = renderHook(() => usePaddockAnalytics([{ id: 9 }]));
+
+    await waitFor(() => expect(result.current.dataById[9]).toBeDefined());
+    expect(result.current.dataById[9]).toEqual({ forage, nutrition: null, recommendation });
+    expect(result.current.errorsById).toEqual({ 9: { nutrition: failure } });
+    expect(result.current.error).toBe(failure);
+    expect(result.current.loading).toBe(false);
+  });
+});
 
 // carga = (consumo diario por animal * cantidad de animales) /
 //         (forraje estimado por ha * hectáreas)
 describe('buildPaddockStatus — carga animal', () => {
+  it('labels forage as a stock per hectare without claiming a daily rate or forage quality', () => {
+    const result = buildPaddockStatus({ forage: { kg_materia_seca_ha: 120 } }, 5);
+
+    expect(result.grass).toBe('120 kg MS/ha');
+    expect(result.status).toBe('Datos disponibles');
+    expect(result.ok).toBe('Estimación forrajera disponible');
+  });
+
   it('computes the load percentage from consumption, animal count, forage and hectares', () => {
     const entry = {
       forage: { kg_materia_seca_ha: 100 },

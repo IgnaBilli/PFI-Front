@@ -7,28 +7,51 @@ import {
 
 export default function usePaddockAnalytics(paddocks) {
   const [dataById, setDataById] = useState({});
+  const [errorsById, setErrorsById] = useState({});
   const [loading, setLoading] = useState(false);
   const ids = paddocks.map((p) => p.id).join(',');
 
   useEffect(() => {
     if (!paddocks.length) {
       setDataById({});
+      setErrorsById({});
+      setLoading(false);
       return undefined;
     }
     let cancelled = false;
     setLoading(true);
-    Promise.all(
+    setErrorsById({});
+    Promise.allSettled(
       paddocks.map(async (paddock) => {
-        const [forage, nutrition, recommendation] = await Promise.all([
+        const results = await Promise.allSettled([
           fetchLatestForage(paddock.id),
           fetchLatestNutrition(paddock.id),
           fetchActiveRecommendation(paddock.id),
         ]);
-        return [paddock.id, { forage, nutrition, recommendation }];
+        const keys = ['forage', 'nutrition', 'recommendation'];
+        const data = {};
+        const errors = {};
+        results.forEach((result, index) => {
+          const key = keys[index];
+          data[key] = result.status === 'fulfilled' ? result.value : null;
+          if (result.status === 'rejected') errors[key] = result.reason;
+        });
+        return [paddock.id, data, errors];
       })
     )
-      .then((entries) => {
-        if (!cancelled) setDataById(Object.fromEntries(entries));
+      .then((results) => {
+        if (cancelled) return;
+        const entries = results
+          .filter((result) => result.status === 'fulfilled')
+          .map((result) => result.value);
+        setDataById(Object.fromEntries(entries.map(([id, data]) => [id, data])));
+        setErrorsById(
+          Object.fromEntries(
+            entries
+              .filter(([, , errors]) => Object.keys(errors).length)
+              .map(([id, , errors]) => [id, errors])
+          )
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -39,18 +62,19 @@ export default function usePaddockAnalytics(paddocks) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids]);
 
-  return { dataById, loading };
+  const error = Object.values(errorsById).flatMap(Object.values)[0] ?? null;
+  return { dataById, loading, error, errorsById };
 }
 
 const STATUS_STYLES = {
-  alert: { status: 'Escasa', statusColor: '#ef4444', statusBg: '#ef444415', loadColor: '#ef4444' },
-  info: { status: 'Regular', statusColor: '#eab308', statusBg: '#eab30815', loadColor: '#eab308' },
-  ok: { status: 'Buena', statusColor: '#22c55e', statusBg: '#22c55e15', loadColor: '#22c55e' },
+  alert: { status: 'Atención', statusColor: 'var(--danger)', statusBg: 'rgb(228 119 110 / 0.12)', loadColor: 'var(--danger)' },
+  info: { status: 'Recomendación', statusColor: 'var(--warning)', statusBg: 'rgb(216 170 98 / 0.12)', loadColor: 'var(--warning)' },
+  ok: { status: 'Datos disponibles', statusColor: 'var(--color-brand-400)', statusBg: 'rgb(74 132 109 / 0.12)', loadColor: 'var(--color-brand-400)' },
   empty: {
     status: 'Sin datos',
-    statusColor: '#71717a',
-    statusBg: '#71717a15',
-    loadColor: '#71717a',
+    statusColor: 'var(--text-muted)',
+    statusBg: 'rgb(221 208 188 / 0.08)',
+    loadColor: 'var(--text-muted)',
   },
 };
 
@@ -91,7 +115,7 @@ export function buildPaddockStatus(entry, hectares) {
   const priority = recommendation?.prioridad ?? recommendation?.tipo ?? null;
   const grassValue = forage?.kg_materia_seca_ha;
   const grass =
-    grassValue !== undefined && grassValue !== null ? `${grassValue} kg MS/ha/dia` : 'Sin datos';
+    grassValue !== undefined && grassValue !== null ? `${grassValue} kg MS/ha` : 'Sin datos';
 
   const loadPercent = computeLoadPercent(nutrition, forage, hectares);
   const load = loadPercent !== null ? `${Math.round(loadPercent)}%` : 'Sin datos';
@@ -115,7 +139,7 @@ export function buildPaddockStatus(entry, hectares) {
     result.alert = recommendationText || 'Se recomienda reducir la carga animal.';
   else if (variant === 'info')
     result.recommendation = recommendationText || 'Tiene una recomendación disponible.';
-  else if (variant === 'ok') result.ok = 'Todo en orden';
+  else if (variant === 'ok') result.ok = 'Estimación forrajera disponible';
 
   return result;
 }

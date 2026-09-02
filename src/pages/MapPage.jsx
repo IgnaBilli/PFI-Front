@@ -30,8 +30,18 @@ import { ApiError } from '../services/api.js';
 export default function MapPage() {
   const navigate = useNavigate();
   const { estanciaId, estancia, refreshEstancia } = useAuth();
-  const { paddocks, loading: paddocksLoading, reload: reloadPaddocks } = usePaddocks(estanciaId);
-  const { cattle, reload: reloadCattle } = useCattle(estanciaId);
+  const {
+    paddocks,
+    loading: paddocksLoading,
+    error: paddocksError,
+    reload: reloadPaddocks,
+  } = usePaddocks(estanciaId);
+  const {
+    cattle,
+    loading: cattleLoading,
+    error: cattleError,
+    reload: reloadCattle,
+  } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
 
   const [name, setName] = useState('');
@@ -72,17 +82,27 @@ export default function MapPage() {
   }
 
   async function handleAddCattleToPaddock({ animals }) {
-    if (!addingToPaddock) return;
+    if (!addingToPaddock) throw new Error('Seleccioná un potrero antes de agregar ganado.');
+    if (!estanciaId || cattleLoading || cattleError) {
+      throw new Error('No se puede agregar ganado hasta completar la carga de datos.');
+    }
     setMutating(true);
     setActionError('');
+    let createdCount = 0;
     try {
       for (const payload of animals) {
         await createCattleForPaddock(addingToPaddock.id, payload);
+        createdCount += 1;
       }
       await reloadAll();
       setAddingToPaddock(null);
     } catch (err) {
-      setActionError(err.message || 'No se pudo agregar el ganado.');
+      if (createdCount > 0) await reloadAll().catch(() => {});
+      const message = createdCount > 0
+        ? `Se registraron ${createdCount} ${createdCount === 1 ? 'animal' : 'animales'}, pero el lote quedó incompleto. Revisá el rodeo antes de reintentar.`
+        : err.message || 'No se pudo agregar el ganado.';
+      setActionError(message);
+      throw new Error(message, { cause: err });
     } finally {
       setMutating(false);
     }
@@ -94,6 +114,10 @@ export default function MapPage() {
   }
 
   async function savePaddock() {
+    if (!estanciaId || paddocksLoading || paddocksError) {
+      setError('No se puede guardar el potrero hasta completar la carga de la estancia.');
+      return;
+    }
     if (!name.trim()) {
       setError('Asignale un nombre al potrero.');
       return;
@@ -226,6 +250,10 @@ export default function MapPage() {
   }
 
   async function saveEstanciaBoundary() {
+    if (!estanciaId) {
+      setError('No se puede guardar el límite porque faltan datos de la estancia.');
+      return;
+    }
     if (vertices.length < 3) {
       setError('El límite de la estancia necesita al menos 3 vértices.');
       return;
@@ -290,12 +318,13 @@ export default function MapPage() {
   function handlePolygonSelect(paddockId) {
     const paddock = paddocksWithCounts.find((p) => p.id === paddockId);
     if (!paddock) return;
-    focusPaddock(paddock);
+    openPaddockPicker(paddock);
   }
 
   function openPaddockPicker(paddock) {
     focusPaddock(paddock);
     setSelectedPaddock(paddock);
+    setPanelOpen(true);
   }
 
   async function handleDeletePaddock(id) {
@@ -362,6 +391,8 @@ export default function MapPage() {
     : null;
 
   const polygonIsSimple = isSimplePolygon(vertices);
+  const paddockDataIncomplete = !estanciaId || paddocksLoading || Boolean(paddocksError);
+  const cattleDataIncomplete = !estanciaId || cattleLoading || Boolean(cattleError);
 
   const existingPolygons = paddocksWithCounts
     .filter((paddock) => paddock.id !== editingId)
@@ -382,7 +413,7 @@ export default function MapPage() {
         : null;
 
   return (
-    <main className="relative flex h-full min-h-[560px] overflow-hidden bg-[#0b0b0c] text-sm">
+    <div className="relative flex h-full min-h-[560px] overflow-hidden bg-[var(--canvas-deep)] text-sm text-[var(--text-soft)]">
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteId)}
         title="Potrero con ganado asignado"
@@ -417,25 +448,40 @@ export default function MapPage() {
       />
 
       <button
+        type="button"
         onClick={() => setPanelOpen(true)}
-        className="absolute right-3 top-3 z-[1000] flex items-center gap-2 rounded-lg border border-white/10 bg-[#0f0f11] px-3.5 py-2.5 text-[11px] font-bold text-stone-300 shadow-xl lg:hidden">
+        aria-label={`Abrir panel de potreros, ${paddocksWithCounts.length} en total`}
+        aria-controls="map-management-panel"
+        aria-expanded={panelOpen}
+        className="app-button-secondary absolute right-3 top-16 z-[1000] px-3 shadow-xl lg:hidden">
         <LandPlot size={14} /> Potreros{' '}
-        <span className="rounded bg-[#222227] px-1.5 py-0.5 text-[10px] text-white">
+        <span className="rounded bg-forest-700 px-1.5 py-0.5 text-xs text-[var(--text)]">
           {paddocksWithCounts.length}
         </span>
       </button>
       <aside
-        className={`absolute inset-y-0 left-0 z-[1002] ${addingToPaddock ? 'w-[min(92vw,560px)] lg:w-[560px]' : 'w-[min(90vw,315px)] lg:w-[315px]'} overflow-y-auto border-r border-white/[.06] bg-[#0f0f11] p-5 text-stone-300 shadow-2xl transition-transform lg:relative lg:z-auto lg:shrink-0 lg:translate-x-0 lg:shadow-none ${panelOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        id="map-management-panel"
+        aria-label="Panel de gestión del mapa"
+        className={`absolute bottom-0 left-0 top-14 z-[1002] ${addingToPaddock ? 'w-[min(94vw,560px)] lg:w-[560px]' : 'w-[min(92vw,340px)] lg:w-[340px]'} overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14 text-[var(--text-soft)] shadow-2xl transition-transform lg:relative lg:inset-y-0 lg:z-auto lg:shrink-0 lg:translate-x-0 lg:p-5 lg:shadow-none ${panelOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}>
         <button
+          type="button"
           onClick={() => setPanelOpen(false)}
-          className="absolute right-4 top-4 grid size-8 place-items-center rounded-lg bg-white/[.04] text-stone-500 lg:hidden">
-          <X size={17} />
+          aria-label="Cerrar panel de gestión"
+          className="app-icon-button absolute right-3 top-3 lg:hidden">
+          <X size={17} aria-hidden="true" />
         </button>
 
         {actionError && (
-          <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2.5 text-[11px] font-semibold text-red-400">
+          <p role="alert" aria-live="assertive" className="app-error mt-3 text-sm">
             {actionError}
           </p>
+        )}
+        {(paddocksError || cattleError) && (
+          <div role="alert" aria-live="polite" className="app-error mt-3 space-y-1 text-sm">
+            {paddocksError && <p>Potreros: {paddocksError}</p>}
+            {cattleError && <p>Ganado: {cattleError}</p>}
+            <p className="text-xs">Las acciones que dependen de esos datos quedan deshabilitadas.</p>
+          </div>
         )}
 
         {addingToPaddock ? (
@@ -451,16 +497,18 @@ export default function MapPage() {
           />
         ) : selectedPaddock ? (
           <>
-            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">Potrero</p>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--text-muted)]">Potrero</p>
             <div className="flex items-center justify-between">
-              <h1 className="mt-1 font-display text-2xl text-white">{selectedPaddock.name}</h1>
+              <h1 className="mt-1 font-display text-2xl text-[var(--text)]">{selectedPaddock.name}</h1>
               <button
+                type="button"
                 onClick={() => setSelectedPaddock(null)}
-                className="mt-1 text-[10px] font-bold text-stone-500 hover:text-white">
+                aria-label={`Cerrar acciones de ${selectedPaddock.name}`}
+                className="app-button-ghost mt-1 min-h-11 text-xs">
                 Cerrar
               </button>
             </div>
-            <p className="mt-1 text-[11px] leading-4 text-stone-600 font-medium">
+            <p className="mt-1 text-sm font-medium leading-5 text-[var(--text-muted)]">
               Elegí qué querés hacer con este potrero.
             </p>
 
@@ -472,11 +520,13 @@ export default function MapPage() {
                   setSelectedPaddock(null);
                   editPaddock(paddock);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
-                <Pencil size={15} className="shrink-0 text-stone-400" />
+                aria-label={`Editar límites de ${selectedPaddock.name}`}
+                disabled={paddockDataIncomplete}
+                className="app-button-secondary min-h-12 w-full justify-start px-3.5 py-3 text-left disabled:opacity-50">
+                <Pencil size={15} className="shrink-0 text-[var(--text-soft)]" />
                 <span>
-                  <span className="block text-[12px] font-bold text-stone-200">Editar límites</span>
-                  <span className="block text-[10px] text-stone-500">Modificar el trazado de este potrero.</span>
+                  <span className="block text-xs font-bold text-[var(--text)]">Editar límites</span>
+                  <span className="block text-xs text-[var(--text-muted)]">Modificar el trazado de este potrero.</span>
                 </span>
               </button>
 
@@ -487,29 +537,32 @@ export default function MapPage() {
                   setSelectedPaddock(null);
                   openAddCattle(paddock);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
-                <Plus size={15} className="shrink-0 text-stone-400" />
+                aria-label={`Agregar ganado a ${selectedPaddock.name}`}
+                disabled={cattleDataIncomplete}
+                className="app-button-secondary min-h-12 w-full justify-start px-3.5 py-3 text-left disabled:opacity-50">
+                <Plus size={15} className="shrink-0 text-[var(--text-soft)]" />
                 <span>
-                  <span className="block text-[12px] font-bold text-stone-200">Agregar ganado</span>
-                  <span className="block text-[10px] text-stone-500">Incorporar animales a este potrero.</span>
+                  <span className="block text-xs font-bold text-[var(--text)]">Agregar ganado</span>
+                  <span className="block text-xs text-[var(--text-muted)]">Incorporar animales a este potrero.</span>
                 </span>
               </button>
 
               <button
                 type="button"
+                aria-label={`Ver detalle de ${selectedPaddock.name}`}
                 onClick={() => navigate(`/potreros/${selectedPaddock.id}`)}
-                className="flex w-full items-center gap-2.5 rounded-lg border border-white/10 bg-white/[.03] px-3.5 py-3 text-left hover:bg-white/[.06]">
-                <LandPlot size={15} className="shrink-0 text-stone-400" />
+                className="app-button-secondary min-h-12 w-full justify-start px-3.5 py-3 text-left">
+                <LandPlot size={15} className="shrink-0 text-[var(--text-soft)]" />
                 <span>
-                  <span className="block text-[12px] font-bold text-stone-200">Ver detalle del potrero</span>
-                  <span className="block text-[10px] text-stone-500">Pasto, clima, ganado y traslados.</span>
+                  <span className="block text-xs font-bold text-[var(--text)]">Ver detalle del potrero</span>
+                  <span className="block text-xs text-[var(--text-muted)]">Pasto, clima, ganado y traslados.</span>
                 </span>
               </button>
             </div>
           </>
         ) : (
         <>
-        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#a1a1aa]">
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--text-muted)]">
           {editMode === 'estancia'
             ? estanciaMode === 'edit'
               ? 'Límite de la estancia'
@@ -519,7 +572,7 @@ export default function MapPage() {
               : 'Mapa satelital'}
         </p>
         <div className="flex items-center justify-between">
-          <h1 className="mt-1 font-display text-2xl text-white">
+          <h1 className="mt-1 font-display text-2xl text-[var(--text)]">
             {editMode === 'estancia'
               ? estanciaMode === 'edit'
                 ? 'Editar límite'
@@ -541,12 +594,12 @@ export default function MapPage() {
                     ? cancelEdit
                     : cancelDrawPaddock
               }
-              className="mt-1 text-[10px] font-bold text-stone-500 hover:text-white">
+              className="app-button-ghost mt-1 min-h-11 text-xs">
               {editMode === 'estancia' && estanciaMode === 'view' ? 'Cerrar' : 'Cancelar'}
             </button>
           )}
         </div>
-        <p className="mt-1 text-[11px] leading-4 text-stone-600 font-medium">
+        <p className="mt-1 text-sm font-medium leading-5 text-[var(--text-muted)]">
           {editMode === 'estancia'
             ? estanciaMode === 'edit'
               ? 'Modificá el trazado del límite general de la estancia.'
@@ -560,7 +613,7 @@ export default function MapPage() {
           <button
             type="button"
             onClick={viewEstancia}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.03] py-2.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06]">
+            className="app-button-secondary mt-4 w-full text-xs">
             <LandPlot size={13} /> Ver estancia
           </button>
         )}
@@ -568,16 +621,17 @@ export default function MapPage() {
         {editMode === 'potrero' && (editingId || potreroMode === 'draw') && (
           <div className="mt-5 space-y-3">
             <div>
-              <span className="text-[10px] font-bold text-stone-400">Nombre del Potrero</span>
+              <label htmlFor="paddock-name" className="app-label">Nombre del potrero</label>
               <input
+                id="paddock-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Lote Norte"
-                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-[12px] text-white outline-none focus:border-stone-500"
+                className="app-field text-base sm:text-sm"
               />
             </div>
             {editingId && (
-              <p className="rounded-lg bg-white/[.02] border border-white/[.05] p-3 text-[11px] text-stone-500">
+              <p className="app-panel-muted p-3 text-sm text-[var(--text-muted)]">
                 Para agregar ganado a este potrero, usá el botón{' '}
                 <Plus size={11} className="inline -mt-0.5" /> de la lista de potreros de abajo.
               </p>
@@ -588,70 +642,90 @@ export default function MapPage() {
         {editMode === 'estancia' && estanciaMode === 'view' ? (
           <div className="mt-5 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-white/[.06] bg-white/[.03] p-3.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Superficie</p>
-                <p className="mt-1 text-[15px] font-bold text-white">
+              <div className="app-panel-muted p-3.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Superficie</p>
+                <p className="mt-1 text-[15px] font-bold text-[var(--text)]">
                   {areaHectares(outlinePolygon?.coordinates ?? []).toFixed(2)} ha
                 </p>
               </div>
-              <div className="rounded-lg border border-white/[.06] bg-white/[.03] p-3.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Potreros</p>
-                <p className="mt-1 text-[15px] font-bold text-white">{paddocksWithCounts.length}</p>
+              <div className="app-panel-muted p-3.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Potreros</p>
+                <p className="mt-1 text-[15px] font-bold text-[var(--text)]">{paddocksWithCounts.length}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={startEstanciaEdit}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black hover:bg-stone-200">
+              disabled={!estanciaId}
+              className="app-button-primary w-full disabled:opacity-50">
               <Pencil size={14} /> Editar límite
             </button>
             <button
               type="button"
               onClick={openDrawPaddock}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[.03] py-3 text-[12px] font-bold text-stone-300 hover:bg-white/[.06]">
+              disabled={paddockDataIncomplete}
+              className="app-button-secondary w-full disabled:opacity-50">
               <Plus size={14} /> Dibujar potrero
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActionError('');
-                setEstanciaDeleteConfirmation({ requiresConfirmation: false });
-              }}
-              disabled={mutating}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[.06] py-3 text-[12px] font-bold text-red-400 hover:bg-red-500/10 disabled:opacity-50">
-              <Trash2 size={14} /> Eliminar estancia
-            </button>
+            <details className="mt-6 border-t border-[var(--border)] pt-3">
+              <summary className="min-h-11 cursor-pointer py-3 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text)]">
+                Administración de la estancia
+              </summary>
+              <p className="mb-3 text-xs text-[var(--text-muted)]">Acciones permanentes fuera del flujo habitual de dibujo.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError('');
+                  setEstanciaDeleteConfirmation({ requiresConfirmation: false });
+                }}
+                disabled={mutating || !estanciaId}
+                className="app-button-ghost w-full text-[var(--danger)] hover:bg-danger-400/10 disabled:opacity-50">
+                <Trash2 size={14} /> Eliminar estancia
+              </button>
+            </details>
           </div>
         ) : editMode === 'potrero' && !editingId && potreroMode === 'home' ? null : (
         <>
-        <div className="mt-4 flex items-center gap-2 rounded-md bg-stone-500/10 px-3 py-2 text-[10px] text-stone-200">
-          <span className="size-2 shrink-0 animate-pulse rounded-full bg-white" />
+        <div className="app-panel-muted mt-4 flex items-center gap-2 px-3 py-2.5 text-sm text-[var(--text-soft)]">
+          <span className="size-2 shrink-0 rounded-full bg-[var(--accent-hover)]" />
           Hacé clic sobre el mapa para marcar cada vértice. Arrastrá los puntos para ajustarlos.
         </div>
 
-        <div className="mt-5 flex items-center justify-between">
-          <p className="text-[11px] font-bold text-stone-400">
-            Vértices <span className="ml-1 text-stone-600">{vertices.length}</span>
+        <div className="mt-5 flex items-center justify-between gap-2">
+          <p className="text-xs font-bold text-[var(--text-soft)]">
+            Vértices <span className="ml-1 text-[var(--text-muted)]">{vertices.length}</span>
           </p>
-          {vertices.length > 0 && (
+          <div className="flex items-center gap-1">
             <button
+              type="button"
+              onClick={() => {
+                const center = mapRef.current?.getCenter?.();
+                addVertex(center?.lat ?? -38.4161, center?.lng ?? -63.6167);
+              }}
+              className="app-button-ghost min-h-11 gap-1 text-xs">
+              <Plus size={12} aria-hidden="true" /> Agregar vértice
+            </button>
+            {vertices.length > 0 && (
+            <button
+              type="button"
               onClick={() => setVertices((current) => current.slice(0, -1))}
-              className="flex items-center gap-1 text-[11px] font-bold text-white hover:underline">
+              className="app-button-ghost min-h-11 gap-1 text-xs">
               <RotateCcw size={12} /> Deshacer
             </button>
-          )}
+            )}
+          </div>
         </div>
         <div className="mt-2.5 max-h-36 space-y-2 overflow-y-auto">
           {vertices.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-white/[.08] px-4 py-5 text-center text-[11px] text-stone-700">
+            <div className="rounded-lg border border-dashed border-[var(--border)] px-4 py-5 text-center text-sm text-[var(--text-muted)]">
               Todavía no agregaste vértices.
             </div>
           ) : (
             vertices.map((vertex, index) => (
               <div
                 key={`${vertex.latitude}-${vertex.longitude}-${index}`}
-                className="flex items-center gap-2 rounded-md bg-white/[.035] px-2.5 py-2 text-[11px]">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-stone-700 text-[10px] font-bold text-white">
+                className="app-panel-muted flex items-center gap-2 px-2.5 py-2 text-xs">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-forest-700 text-xs font-bold text-[var(--text)]">
                   {index + 1}
                 </span>
                 <span className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
@@ -661,7 +735,7 @@ export default function MapPage() {
                     step="any"
                     value={vertex.latitude}
                     onChange={(event) => updateVertex(index, 'latitude', event.target.value)}
-                    className="min-w-0 rounded border border-white/[.06] bg-[#0b0b0c] px-2 py-1.5 text-[10px] text-stone-300 outline-none focus:border-stone-500"
+                    className="app-field min-h-11 min-w-0 px-2 py-1.5 text-sm"
                   />
                   <input
                     aria-label={`Longitud del vértice ${index + 1}`}
@@ -669,7 +743,7 @@ export default function MapPage() {
                     step="any"
                     value={vertex.longitude}
                     onChange={(event) => updateVertex(index, 'longitude', event.target.value)}
-                    className="min-w-0 rounded border border-white/[.06] bg-[#0b0b0c] px-2 py-1.5 text-[10px] text-stone-300 outline-none focus:border-stone-500"
+                    className="app-field min-h-11 min-w-0 px-2 py-1.5 text-sm"
                   />
                 </span>
                 <button
@@ -677,7 +751,7 @@ export default function MapPage() {
                     setVertices((current) => current.filter((_, itemIndex) => itemIndex !== index))
                   }
                   aria-label={`Eliminar vértice ${index + 1}`}
-                  className="text-stone-600 hover:text-red-400">
+                  className="app-icon-button shrink-0 border-0 bg-transparent hover:text-[var(--danger)]">
                   <X size={14} />
                 </button>
               </div>
@@ -687,87 +761,87 @@ export default function MapPage() {
         {error && (
           <p
             role="alert"
-            className="mt-3.5 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-400">
+            className="app-error mt-3.5 text-sm font-semibold">
             {error}
           </p>
         )}
         {vertices.length >= 3 && !polygonIsSimple && (
           <p
             role="alert"
-            className="mt-3.5 rounded-lg bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-400">
+            className="app-error mt-3.5 text-sm font-semibold">
             El polígono se cruza a sí mismo. Arrastrá los vértices para corregirlo antes de guardar.
           </p>
         )}
         {vertices.length >= 3 && (
-          <div className="mt-3.5 flex items-center justify-between rounded-md bg-stone-800 px-3.5 py-2.5 text-[11px]">
-            <span className="text-stone-400">Superficie estimada</span>
-            <strong className="text-white">{areaHectares(vertices).toFixed(2)} ha</strong>
+          <div className="mt-3.5 flex items-center justify-between rounded-md bg-forest-800 px-3.5 py-2.5 text-xs">
+            <span className="text-[var(--text-soft)]">Superficie estimada</span>
+            <strong className="text-[var(--text)]">{areaHectares(vertices).toFixed(2)} ha</strong>
           </div>
         )}
         <button
           onClick={editMode === 'estancia' ? saveEstanciaBoundary : savePaddock}
-          disabled={mutating || (vertices.length >= 3 && !polygonIsSimple)}
-          className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-white py-3 text-[12px] font-bold text-black transition hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-60">
+          disabled={mutating || (vertices.length >= 3 && !polygonIsSimple) || (editMode === 'estancia' ? !estanciaId : paddockDataIncomplete)}
+          className="app-button-primary mt-3.5 w-full disabled:opacity-50">
           {mutating ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />}{' '}
           {editMode === 'estancia' ? 'Guardar límite' : editingId ? 'Guardar cambios' : 'Guardar potrero'}
         </button>
         </>
         )}
 
-        <div className="my-6 h-px bg-white/[.06]" />
+        <div className="my-6 h-px bg-[var(--border)]" />
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl text-white">Mis potreros</h2>
-          <span className="rounded-full bg-white/[.05] px-2 py-1 text-[10px] font-bold text-stone-500">
+          <h2 className="font-display text-xl text-[var(--text)]">Mis potreros</h2>
+          <span className="rounded-full bg-sand-100/[.05] px-2 py-1 text-xs font-bold text-[var(--text-muted)]">
             {paddocksLoading ? <LoaderCircle size={11} className="animate-spin" /> : paddocksWithCounts.length}
           </span>
         </div>
         <div className="mt-4 space-y-2.5">
           {paddocksWithCounts.length === 0 ? (
-            <p className="py-4 text-center text-[11px] text-stone-700">
+            <p className="py-4 text-center text-sm text-[var(--text-muted)]">
               Los potreros guardados aparecerán acá.
             </p>
           ) : (
             paddocksWithCounts.map((paddock, index) => (
               <div
                 key={paddock.id}
-                className="group flex items-center gap-2 rounded-lg border border-white/[.05] bg-white/[.025] p-3">
+                className="group flex items-center gap-2 rounded-lg border border-[var(--border)] bg-sand-100/[.025] p-3">
                 <button
                   onClick={() => openPaddockPicker(paddock)}
-                  className="flex min-w-0 flex-1 items-center gap-3.5 text-left">
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3.5 text-left">
                   <span
-                    className="grid size-8 shrink-0 place-items-center rounded-md text-white font-bold text-[11px]"
+                    className="grid size-8 shrink-0 place-items-center rounded-md text-xs font-bold text-[var(--text)]"
                     style={{ backgroundColor: COLORS[index % COLORS.length] }}>
                     <MapPin size={14} />
                   </span>
                   <span className="min-w-0">
-                    <strong className="block truncate text-[12px] text-stone-200">
+                    <strong className="block truncate text-xs text-[var(--text)]">
                       {paddock.name}
                     </strong>
-                    <small className="text-[10px] text-stone-500">
-                      {paddock.hectares.toFixed(1)} ha · {paddock.animals} cabezas
+                    <small className="text-xs text-[var(--text-muted)]">
+                      {paddock.hectares.toFixed(1)} ha · {cattleDataIncomplete ? 'ganado sin cargar' : `${paddock.animals} cabezas`}
                     </small>
                   </span>
                 </button>
                 <button
                   onClick={() => openAddCattle(paddock)}
-                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
+                  disabled={mutating || cattleDataIncomplete || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Agregar ganado a ${paddock.name}`}
                   title="Agregar ganado"
-                  className="grid size-8 place-items-center rounded-md text-stone-500 hover:bg-emerald-500/10 hover:text-emerald-400 disabled:opacity-50">
+                  className="app-icon-button shrink-0 border-0 bg-transparent disabled:opacity-50">
                   <Plus size={14} />
                 </button>
                 <button
                   onClick={() => editPaddock(paddock)}
-                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
+                  disabled={mutating || paddockDataIncomplete || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Editar ${paddock.name}`}
-                  className="grid size-8 place-items-center rounded-md text-stone-500 hover:bg-stone-850 hover:text-white disabled:opacity-50">
+                  className="app-icon-button shrink-0 border-0 bg-transparent disabled:opacity-50">
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDeletePaddock(paddock.id)}
-                  disabled={mutating || (editMode === 'estancia' && estanciaMode === 'edit')}
+                  disabled={mutating || paddockDataIncomplete || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Eliminar ${paddock.name}`}
-                  className="grid size-8 place-items-center rounded-md text-stone-600 hover:bg-red-950/40 hover:text-red-400 disabled:opacity-50">
+                  className="app-icon-button shrink-0 border-0 bg-transparent text-[var(--text-muted)] hover:text-[var(--danger)] disabled:opacity-50">
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -788,7 +862,7 @@ export default function MapPage() {
       <section className="relative min-w-0 flex-1">
         <PlaceSearchBar
           {...placeSearch}
-          className="absolute left-1/2 top-3 z-[1000] w-[min(88%,390px)] -translate-x-1/2"
+          className="absolute left-3 right-3 top-16 z-[1000] sm:left-14 sm:right-auto sm:top-3 sm:w-[min(70%,390px)] lg:left-1/2 lg:-translate-x-1/2"
         />
         <PolygonMapCanvas
           mapRef={mapRef}
@@ -803,12 +877,12 @@ export default function MapPage() {
           onVertexDrag={moveVertex}
           onPolygonClick={isDrawing ? null : handlePolygonSelect}
         />
-        <div className="pointer-events-none absolute bottom-6 left-1/2 z-[500] -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#0f0f11]/90 px-3.5 py-2.5 text-[10px] font-semibold text-stone-300 shadow-xl backdrop-blur">
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[500] rounded-md border border-[var(--border)] bg-[var(--surface)]/95 px-3.5 py-2.5 text-center text-xs font-semibold text-[var(--text-soft)] shadow-xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:whitespace-nowrap">
           {isDrawing
             ? 'Hacé clic para marcar cada vértice en el mapa'
             : 'Elegí "Dibujar potrero" o "Editar límite" en el panel lateral'}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

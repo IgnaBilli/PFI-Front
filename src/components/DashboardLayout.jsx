@@ -1,6 +1,6 @@
 import { Beef, ChartNoAxesCombined, LogOut, Map, LandPlot, Menu, X } from 'lucide-react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import Logo from './Logo.jsx';
 
@@ -15,75 +15,114 @@ export default function DashboardLayout() {
   const [open, setOpen] = useState(false);
   const { estancia, logout } = useAuth();
   const navigate = useNavigate();
+  const menuButtonRef = useRef(null);
+  const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const focusableSelector =
+      'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+    const focusableItems = sidebarRef.current?.querySelectorAll(focusableSelector);
+    focusableItems?.[0]?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== 'Tab' || !focusableItems?.length) return;
+      const first = focusableItems[0];
+      const last = focusableItems[focusableItems.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
+  function closeMenu() {
+    setOpen(false);
+    menuButtonRef.current?.focus();
+  }
+
   return (
-    <main className="flex h-dvh min-h-[560px] overflow-hidden bg-[#121614] text-[#B8AC96] text-sm">
+    <div className="flex h-dvh min-h-[560px] overflow-hidden bg-forest-900 text-sand-300 text-sm">
+      <a
+        href="#app-main"
+        className="fixed left-3 top-3 z-[3000] -translate-y-20 rounded-lg bg-sand-100 px-4 py-2 font-bold text-forest-950 transition-transform focus:translate-y-0">
+        Saltar al contenido
+      </a>
       <aside
-        className={`fixed inset-y-0 left-0 z-[2000] flex w-72 flex-col border-r border-[#5E4636]/25 bg-[#121614] px-5 py-6 transition-transform md:relative md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        ref={sidebarRef}
+        id="main-navigation"
+        aria-label="Navegación principal"
+        className={`fixed inset-y-0 left-0 z-[2000] flex w-[min(18rem,86vw)] flex-col border-r border-sand-100/10 bg-forest-900 px-4 py-5 shadow-[12px_0_36px_rgba(0,0,0,.3)] transition-transform duration-200 md:relative md:visible md:w-24 md:translate-x-0 md:px-3 md:shadow-none xl:w-64 xl:px-5 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full'}`}>
         <div className="relative flex items-center justify-center">
-          <Logo size={150} />
+          <Logo size={136} className="md:hidden xl:block" />
+          <Logo variant="icon" size={42} className="hidden md:block xl:hidden" />
           <button
-            onClick={() => setOpen(false)}
-            className="absolute right-0 top-0 text-[#B8AC96] md:hidden">
+            type="button"
+            aria-label="Cerrar menú"
+            onClick={closeMenu}
+            className="app-icon-button absolute right-0 top-0 md:hidden">
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-5 h-px shrink-0 bg-gradient-to-r from-transparent via-[#5E4636]/50 to-transparent" />
+        <div className="mt-5 h-px shrink-0 bg-sand-100/10" />
 
-        <div className="mt-5 shrink-0 rounded-2xl border border-[#5E4636]/30 bg-gradient-to-b from-[#1B211E] to-[#171b18] px-4 py-3.5 shadow-[0_4px_14px_rgba(0,0,0,.25)]">
-          <p className="text-[9px] font-bold uppercase tracking-[.22em] text-[#B8AC96]">Establecimiento</p>
-          <p className="mt-1 truncate text-[15px] font-bold text-[#DDD0BC]">
+        <div className="app-panel-muted mt-5 shrink-0 px-4 py-3.5 md:hidden xl:block">
+          <p className="text-xs font-bold uppercase tracking-[.14em] text-sand-500">Establecimiento</p>
+          <p className="mt-1 truncate text-sm font-bold text-sand-100">
             {estancia?.nombre || 'Mi estancia'}
           </p>
-          <p className="mt-0.5 text-[10px] text-[#B8AC96]">Argentina</p>
+          <p className="mt-0.5 text-xs text-sand-500">Argentina</p>
         </div>
 
-        <p className="mt-7 mb-3 shrink-0 px-1 text-[10px] font-bold uppercase tracking-[.24em] text-[#B8AC96]">
+        <p className="mt-7 mb-3 shrink-0 px-1 text-xs font-bold uppercase tracking-[.14em] text-sand-500 md:text-center xl:text-left">
           Navegación
         </p>
-        <nav className="space-y-2.5 overflow-y-auto">
+        <nav className="space-y-2 overflow-y-auto" aria-label="Secciones de la estancia">
           {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
-              onClick={() => setOpen(false)}
+              onClick={closeMenu}
               className={({ isActive }) =>
-                `group relative flex w-full items-center justify-center gap-3.5 overflow-hidden rounded-2xl border px-4 py-3.5 text-[13px] font-bold transition-colors duration-150 ${
-                  isActive
-                    ? 'border-[#245746] bg-[#245746] text-[#DDD0BC]'
-                    : 'border-[#5E4636]/25 bg-[#1B211E] text-[#B8AC96] hover:border-[#5E4636]/40 hover:bg-[#5E4636]/20 hover:text-[#DDD0BC]'
-                }`
-              }>
-              {({ isActive }) => (
-                <>
-
-                  <span
-                    className={`grid size-10 shrink-0 place-items-center rounded-xl transition-colors ${
-                      isActive
-                        ? 'bg-[#DDD0BC]/15 text-[#DDD0BC]'
-                        : 'bg-[#5E4636]/25 text-[#DDD0BC]/85 group-hover:bg-[#7A5A46]/40'
-                    }`}>
-                    <Icon size={20} />
-                  </span>
-                  <span className="flex-1 text-left">{label}</span>
-                </>
-              )}
+                 `group relative flex min-h-12 w-full items-center gap-3 overflow-hidden rounded-xl border px-3 py-2.5 text-[13px] font-bold transition-colors md:justify-center md:px-2 xl:justify-start xl:px-3 ${
+                   isActive
+                     ? 'border-brand-500 bg-brand-600 text-sand-100'
+                     : 'border-transparent text-sand-300 hover:border-sand-100/10 hover:bg-forest-800 hover:text-sand-100'
+                 }`
+               }>
+              <Icon size={19} aria-hidden="true" className="shrink-0" />
+              <span className="flex-1 text-left md:sr-only xl:not-sr-only">{label}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="mt-auto shrink-0 pt-6">
-          <div className="h-px bg-gradient-to-r from-transparent via-[#5E4636]/40 to-transparent" />
+          <div className="h-px bg-sand-100/10" />
           <button
+            type="button"
             onClick={handleLogout}
-            className="mt-4 flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[12px] font-semibold text-[#B8AC96] transition hover:bg-[#5E4636]/20 hover:text-[#DDD0BC]">
-            <LogOut size={17} /> Cerrar sesión
+            aria-label="Cerrar sesión"
+            className="app-button-ghost mt-3 w-full md:px-0 xl:px-3">
+            <LogOut size={17} aria-hidden="true" />
+            <span className="md:sr-only xl:not-sr-only">Cerrar sesión</span>
           </button>
         </div>
       </aside>
@@ -91,18 +130,31 @@ export default function DashboardLayout() {
       {open && (
         <button
           aria-label="Cerrar menú"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[1999] bg-black/60 md:hidden"
+          onClick={closeMenu}
+          className="fixed inset-0 z-[1999] bg-black/65 md:hidden"
         />
       )}
-      <section className="relative min-w-0 flex-1 overflow-auto bg-[#121614]">
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed left-3 top-3 z-[1500] grid size-10 place-items-center rounded-lg border border-[#5E4636]/30 bg-[#1B211E] text-[#B8AC96] shadow-xl md:hidden">
-          <Menu size={18} />
-        </button>
+      <main
+        id="app-main"
+        tabIndex="-1"
+        inert={open ? true : undefined}
+        className="relative min-w-0 flex-1 overflow-auto bg-forest-900">
+        <header className="fixed inset-x-0 top-0 z-[1500] flex h-14 items-center justify-between border-b border-sand-100/10 bg-forest-900/95 px-3 md:hidden">
+          <button
+            ref={menuButtonRef}
+            type="button"
+            aria-label="Abrir menú"
+            aria-controls="main-navigation"
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+            className="app-icon-button">
+            <Menu size={19} aria-hidden="true" />
+          </button>
+          <Logo variant="icon" size={34} />
+          <span className="size-[42px]" aria-hidden="true" />
+        </header>
         <Outlet />
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }

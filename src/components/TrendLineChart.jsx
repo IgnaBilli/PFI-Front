@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 // Línea de tendencia genérica: recibe puntos {t,value} ya numéricos (tiempo
 // en ms o cualquier eje ordenado) y deja el formateo de ejes/tooltip a quien
@@ -9,12 +9,16 @@ export default function TrendLineChart({
   formatX,
   formatTooltip,
   emptyMessage = 'Todavía no hay suficiente histórico para graficar la evolución.',
+  ariaLabel = 'Evolución',
 }) {
-  const [hoverIndex, setHoverIndex] = useState(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const instructionsId = useId();
+  const [activeIndex, setActiveIndex] = useState(null);
 
   if (points.length < 2) {
     return (
-      <p className="mt-3 rounded-lg border border-dashed border-white/[.08] px-4 py-6 text-center text-[11px] text-stone-600">
+      <p className="mt-3 rounded-lg border border-dashed border-sand-100/10 px-4 py-6 text-center text-xs text-sand-500">
         {emptyMessage}
       </p>
     );
@@ -25,6 +29,7 @@ export default function TrendLineChart({
   const padding = { top: 12, right: 12, bottom: 22, left: 38 };
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
+  const hitWidth = Math.min(64, innerW / points.length);
 
   const minT = points[0].t;
   const maxT = points[points.length - 1].t;
@@ -40,11 +45,47 @@ export default function TrendLineChart({
     `${linePath} L ${x(points[points.length - 1].t).toFixed(1)} ${(padding.top + innerH).toFixed(1)} ` +
     `L ${x(points[0].t).toFixed(1)} ${(padding.top + innerH).toFixed(1)} Z`;
 
-  const hovered = hoverIndex !== null ? points[hoverIndex] : null;
+  const active = activeIndex !== null ? points[activeIndex] : null;
+
+  function handlePointKeyDown(event, index) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setActiveIndex(index);
+      return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Escape') {
+      setActiveIndex(null);
+      return;
+    }
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? points.length - 1
+          : Math.min(Math.max(index + (event.key === 'ArrowRight' ? 1 : -1), 0), points.length - 1);
+    setActiveIndex(nextIndex);
+    event.currentTarget.parentElement.parentElement
+      ?.querySelector(`[data-point-index="${nextIndex}"]`)
+      ?.focus();
+  }
 
   return (
     <div className="relative mt-3">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Evolución">
+      <p id={instructionsId} className="sr-only">
+        Gráfico interactivo. Usá las flechas izquierda y derecha para recorrer los puntos.
+      </p>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full touch-manipulation"
+        role="group"
+        aria-labelledby={`${titleId} ${descriptionId}`}
+        aria-describedby={instructionsId}>
+        <title id={titleId}>{ariaLabel}</title>
+        <desc id={descriptionId}>
+          {points.map((point) => formatTooltip(point)).join('. ')}.
+        </desc>
         {[0, 0.5, 1].map((f) => (
           <line
             key={f}
@@ -52,45 +93,70 @@ export default function TrendLineChart({
             x2={width - padding.right}
             y1={padding.top + innerH * (1 - f)}
             y2={padding.top + innerH * (1 - f)}
-            stroke="rgba(255,255,255,.06)"
+            stroke="var(--border)"
           />
         ))}
-        <text x={padding.left - 6} y={padding.top + 4} textAnchor="end" className="fill-stone-600" fontSize="9">
+        <text x={padding.left - 6} y={padding.top + 4} textAnchor="end" className="fill-sand-500" fontSize="12">
           {Math.round(maxValue)}
         </text>
-        <text x={padding.left - 6} y={padding.top + innerH} textAnchor="end" className="fill-stone-600" fontSize="9">
+        <text x={padding.left - 6} y={padding.top + innerH} textAnchor="end" className="fill-sand-500" fontSize="12">
           0
         </text>
         <path d={areaPath} fill={color} fillOpacity="0.12" stroke="none" />
         <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((p, i) => (
           <g key={i}>
-            <circle cx={x(p.t)} cy={y(p.value)} r={hoverIndex === i ? 4 : 2.5} fill={color} stroke="#161619" strokeWidth="1.5" />
+            <circle
+              cx={x(p.t)}
+              cy={y(p.value)}
+              r={activeIndex === i ? 5 : 3}
+              fill={color}
+              stroke="var(--surface)"
+              strokeWidth="1.5"
+            />
             <rect
-              x={x(p.t) - 10}
+              data-point-index={i}
+              x={x(p.t) - hitWidth / 2}
               y={padding.top}
-              width="20"
+              width={hitWidth}
               height={innerH}
               fill="transparent"
-              onMouseEnter={() => setHoverIndex(i)}
-              onMouseLeave={() => setHoverIndex((current) => (current === i ? null : current))}
+              role="button"
+              tabIndex="0"
+              aria-label={formatTooltip(p)}
+              onFocus={() => setActiveIndex(i)}
+              onBlur={() => setActiveIndex(null)}
+              onKeyDown={(event) => handlePointKeyDown(event, i)}
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(null)}
+              onClick={() => setActiveIndex((current) => (current === i ? null : i))}
             />
           </g>
         ))}
-        <text x={padding.left} y={height - 6} className="fill-stone-600" fontSize="9">
+        <text x={padding.left} y={height - 6} className="fill-sand-500" fontSize="12">
           {formatX(points[0].t)}
         </text>
-        <text x={width - padding.right} y={height - 6} textAnchor="end" className="fill-stone-600" fontSize="9">
+        <text x={width - padding.right} y={height - 6} textAnchor="end" className="fill-sand-500" fontSize="12">
           {formatX(points[points.length - 1].t)}
         </text>
       </svg>
-      {hovered && (
+      {active && (
         <div
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-white/10 bg-[#0b0b0c] px-2 py-1 text-[10px] font-semibold text-white shadow-xl"
-          style={{ left: `${(x(hovered.t) / width) * 100}%`, top: `${(y(hovered.value) / height) * 100}%` }}>
-          {formatTooltip(hovered)}
+          role="status"
+          className="pointer-events-none absolute whitespace-nowrap rounded-md border border-[var(--border)] bg-forest-950 px-2 py-1 text-xs font-semibold text-[var(--text)] shadow-xl"
+          style={{
+            left: `${(x(active.t) / width) * 100}%`,
+            top: `${(y(active.value) / height) * 100}%`,
+            transform: `translate(${activeIndex === 0 ? '0' : activeIndex === points.length - 1 ? '-100%' : '-50%'}, -100%)`,
+          }}>
+          {formatTooltip(active)}
         </div>
       )}
+      <ol className="sr-only">
+        {points.map((point, index) => (
+          <li key={`${point.t}-${index}`}>{formatTooltip(point)}</li>
+        ))}
+      </ol>
     </div>
   );
 }

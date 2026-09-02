@@ -51,7 +51,7 @@ describe('PlaceSearchBar', () => {
 
   it('shows the error message when present', () => {
     render(<PlaceSearchBar {...baseProps({ placeError: 'No encontramos ese lugar en Argentina.' })} />);
-    expect(screen.getByText('No encontramos ese lugar en Argentina.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('No encontramos ese lugar en Argentina.');
   });
 
   it('shows a clear button once there is a query and calls clearSearch', async () => {
@@ -61,5 +61,13 @@ describe('PlaceSearchBar', () => {
 
     await user.click(screen.getByLabelText('Limpiar búsqueda'));
     expect(clearSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it('provides a named search action and disables it until the query is usable', () => {
+    const { rerender } = render(<PlaceSearchBar {...baseProps()} />);
+    expect(screen.getByRole('button', { name: 'Buscar lugar' })).toBeDisabled();
+
+    rerender(<PlaceSearchBar {...baseProps({ placeQuery: 'Salta' })} />);
+    expect(screen.getByRole('button', { name: 'Buscar lugar' })).toBeEnabled();
   });
 });

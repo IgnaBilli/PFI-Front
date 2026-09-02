@@ -4,8 +4,11 @@ import { useAuth } from '../context/AuthContext.jsx'
 
 function FullScreenLoader() {
   return (
-    <main className="grid h-dvh place-items-center bg-[#0b0b0c] text-stone-400">
-      <LoaderCircle size={28} className="animate-spin" />
+    <main className="grid h-dvh place-items-center bg-forest-950 text-sand-300">
+      <div role="status" className="flex flex-col items-center gap-3">
+        <LoaderCircle size={28} className="animate-spin text-brand-400" aria-hidden="true" />
+        <span className="text-xs font-semibold">Cargando tu estancia...</span>
+      </div>
     </main>
   )
 }
@@ -13,25 +16,27 @@ function FullScreenLoader() {
 function FullScreenError() {
   const { refreshEstancia, logout } = useAuth()
   return (
-    <main className="grid h-dvh place-items-center bg-[#0b0b0c] px-4 text-center text-stone-300">
-      <div className="max-w-sm">
-        <span className="mx-auto grid size-10 place-items-center rounded-lg bg-red-500/10 text-red-400">
-          <AlertTriangle size={18} />
+    <main className="grid h-dvh place-items-center bg-forest-950 px-4 text-center text-sand-200">
+      <div className="app-panel max-w-md p-7" role="alert">
+        <span className="mx-auto grid size-11 place-items-center rounded-xl bg-danger-400/10 text-danger-400">
+          <AlertTriangle size={19} aria-hidden="true" />
         </span>
-        <p className="mt-3 text-[13px] font-bold text-white">No se pudo conectar con el servidor</p>
-        <p className="mt-1.5 text-[11px] leading-5 text-stone-500">
+        <h1 className="mt-4 text-lg font-bold text-sand-100">No pudimos conectar con el servidor</h1>
+        <p className="mt-2 text-sm leading-6 text-sand-500">
           Revisá tu conexión e intentá de nuevo. Si el problema persiste, puede ser un problema
           temporal del servicio.
         </p>
         <div className="mt-5 flex justify-center gap-2.5">
           <button
+            type="button"
             onClick={() => refreshEstancia().catch(() => {})}
-            className="flex items-center gap-1.5 rounded-lg bg-white px-4 py-2.5 text-[11px] font-bold text-black hover:bg-stone-200">
-            <RotateCcw size={13} /> Reintentar
+            className="app-button-primary">
+            <RotateCcw size={15} aria-hidden="true" /> Reintentar
           </button>
           <button
+            type="button"
             onClick={logout}
-            className="rounded-lg px-4 py-2.5 text-[11px] font-semibold text-stone-500 hover:bg-white/[.05] hover:text-white">
+            className="app-button-ghost">
             Cerrar sesión
           </button>
         </div>

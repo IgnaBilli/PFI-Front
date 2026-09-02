@@ -76,7 +76,11 @@ export default function CattlePage() {
   const filtered = cattle.filter((animal) => {
     const matchesQuery = !query || Object.values(animal).some((value) => String(value).toLowerCase().includes(query.toLowerCase()));
     const matchesCategory = !filterCategory || (CATEGORY_UI_TO_API[animal.category] ?? animal.category) === filterCategory;
-    const matchesPaddock = !filterPaddockId || (filterPaddockId === 'unassigned' ? !animal.paddockId : animal.paddockId === filterPaddockId);
+    const matchesPaddock =
+      !filterPaddockId ||
+      (filterPaddockId === 'unassigned'
+        ? animal.paddockId == null
+        : String(animal.paddockId) === filterPaddockId);
     const matchesStatus = !filterStatus || animal.status === filterStatus;
     return matchesQuery && matchesCategory && matchesPaddock && matchesStatus;
   });
@@ -88,6 +92,7 @@ export default function CattlePage() {
   async function handleAddCustomCattle({ paddockId: targetPaddockId, animals }) {
     setMutating(true);
     setActionError('');
+    let createdCount = 0;
     try {
       for (const payload of animals) {
         if (targetPaddockId) {
@@ -95,10 +100,17 @@ export default function CattlePage() {
         } else {
           await createCattleForEstancia(estanciaId, payload);
         }
+        createdCount += 1;
       }
       await reloadAll();
+      setIsModalOpen(false);
     } catch (err) {
-      setActionError(err.message || 'No se pudo agregar el ganado.');
+      if (createdCount > 0) await reloadAll().catch(() => {});
+      const message = createdCount > 0
+        ? `Se registraron ${createdCount} ${createdCount === 1 ? 'animal' : 'animales'}, pero el lote quedó incompleto. Revisá el rodeo antes de reintentar.`
+        : err.message || 'No se pudo agregar el ganado.';
+      setActionError(message);
+      throw new Error(message, { cause: err });
     } finally {
       setMutating(false);
     }
@@ -222,10 +234,12 @@ export default function CattlePage() {
   }
 
   function handleSelectAll() {
-    if (selectedIds.length === filtered.length) {
-      setSelectedIds([]);
+    const filteredIds = filtered.map((animal) => animal.id);
+    const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.includes(id));
+    if (allFilteredSelected) {
+      setSelectedIds((current) => current.filter((id) => !filteredIds.includes(id)));
     } else {
-      setSelectedIds(filtered.map((animal) => animal.id));
+      setSelectedIds((current) => [...new Set([...current, ...filteredIds])]);
     }
   }
 
@@ -250,7 +264,7 @@ export default function CattlePage() {
   }
 
   return (
-    <div className="min-h-full px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+    <div className="app-page min-h-full text-sm">
       <AddCattleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -282,68 +296,70 @@ export default function CattlePage() {
         onCancel={() => setConfirmBulkDelete(false)}
       />
 
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[.22em] text-stone-400">Rodeo</p>
-          <h1 className="mt-1 font-display text-2xl text-white">Todo el ganado</h1>
-          <p className="mt-1 text-[11px] text-stone-500 font-medium">
+          <h1 className="font-display text-2xl font-bold text-[var(--text)] sm:text-3xl">Todo el ganado</h1>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
             Registro individual de animales del establecimiento.
           </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
           disabled={mutating}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2.5 text-[11px] font-bold text-black hover:bg-emerald-400 shadow-lg disabled:opacity-50">
-          <Plus size={15} /> Agregar Ganado
+          className="app-button-primary w-full disabled:opacity-50 sm:w-auto">
+          <Plus size={16} aria-hidden="true" /> Agregar ganado
         </button>
       </header>
 
       {actionError && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+        <p className="app-error mt-4" role="alert">
           {actionError}
         </p>
       )}
       {cattleError && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
+        <p className="app-error mt-4" role="alert">
           {cattleError}
         </p>
       )}
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 gap-2">
-          <label className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-white/[.07] bg-[#161619] px-3.5">
-            <Search size={14} className="text-stone-600" />
+      <div className="mt-6 space-y-3">
+        <div className="flex gap-2">
+          <label className="relative flex max-w-xl flex-1 items-center">
+            <Search size={14} className="pointer-events-none absolute left-3 text-[var(--text-muted)]" aria-hidden="true" />
+            <span className="sr-only">Buscar ganado</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar caravana..."
-              className="w-full bg-transparent py-3 text-[12px] text-white outline-none placeholder:text-stone-750"
+              className="app-field pl-9"
             />
           </label>
           <button
             type="button"
             onClick={() => setShowFilterPanel((prev) => !prev)}
-            className={`relative grid size-10 place-items-center rounded-lg border transition-colors ${
+            aria-label="Mostrar filtros de ganado"
+            aria-expanded={showFilterPanel}
+            className={`app-icon-button relative shrink-0 ${
               showFilterPanel || hasActiveFilters
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                : 'border-white/[.07] bg-[#161619] text-stone-400 hover:text-white'
-            }`}
-            title="Filtrar ganado">
-            <SlidersHorizontal size={14} />
+                ? 'border-brand-400/40 bg-brand-500/10 text-brand-400'
+                : 'border-[var(--border)] bg-forest-900 text-[var(--text-soft)] hover:text-[var(--text)]'
+            }`}>
+            <SlidersHorizontal size={16} aria-hidden="true" />
             {hasActiveFilters && (
-              <span className="absolute -right-1 -top-1 size-2 rounded-full bg-emerald-400" />
+              <span className="absolute -right-1 -top-1 size-2 rounded-full bg-brand-400" />
             )}
           </button>
         </div>
 
         {showFilterPanel && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-white/[.08] bg-[#161619] p-3.5 text-[11px] text-stone-300">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Categoría</label>
+          <div className="app-panel-muted grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label htmlFor="cattle-filter-category" className="app-label">Categoría</label>
               <select
+                id="cattle-filter-category"
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                className="app-field">
                 <option value="">Todas las categorías</option>
                 {CATEGORY_OPTIONS.map((cat) => (
                   <option key={cat.value} value={cat.value}>
@@ -353,12 +369,13 @@ export default function CattlePage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Potrero</label>
+            <div>
+              <label htmlFor="cattle-filter-paddock" className="app-label">Potrero</label>
               <select
+                id="cattle-filter-paddock"
                 value={filterPaddockId}
                 onChange={(e) => setFilterPaddockId(e.target.value)}
-                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                className="app-field">
                 <option value="">Todos los potreros</option>
                 <option value="unassigned">Sin asignar</option>
                 {paddocks.map((p) => (
@@ -369,12 +386,13 @@ export default function CattlePage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Estado Reproductivo</label>
+            <div>
+              <label htmlFor="cattle-filter-status" className="app-label">Estado reproductivo</label>
               <select
+                id="cattle-filter-status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500">
+                className="app-field">
                 <option value="">Todos los estados</option>
                 {STATUS_OPTIONS.map((st) => (
                   <option key={st.value} value={st.value}>
@@ -392,7 +410,7 @@ export default function CattlePage() {
                   setFilterPaddockId('');
                   setFilterStatus('');
                 }}
-                className="mt-auto rounded-lg border border-white/[.08] bg-white/[.04] px-3 py-1.5 text-[11px] font-semibold text-stone-400 hover:bg-white/[.08] hover:text-white">
+                className="app-button-ghost mt-auto self-end">
                 Limpiar filtros
               </button>
             )}
@@ -400,15 +418,16 @@ export default function CattlePage() {
         )}
 
         {selectedIds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 px-3.5">
-            <span className="text-[11px] text-emerald-400 font-semibold">
+          <div className="app-panel-muted flex flex-wrap items-center gap-2.5 p-3" aria-label="Acciones masivas">
+            <span className="text-xs font-semibold text-brand-400">
               {selectedIds.length} seleccionados
             </span>
             <select
+              aria-label="Nueva categoría para la selección"
               value={bulkCategory}
               onChange={(e) => setBulkCategory(e.target.value)}
               disabled={mutating}
-              className="rounded border border-white/[.08] bg-[#0b0b0c] px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-stone-500">
+              className="app-field min-w-48 flex-1 sm:flex-none">
               <option value="">Cambiar Categoría...</option>
               {CATEGORY_OPTIONS.map((cat) => (
                 <option key={cat.value} value={cat.value}>
@@ -419,64 +438,68 @@ export default function CattlePage() {
             <button
               onClick={handleBulkCategoryApply}
               disabled={!bulkCategory || mutating}
-              className="rounded bg-emerald-500 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-400 disabled:opacity-50">
+              className="app-button-primary disabled:opacity-50">
               Aplicar
             </button>
             <button
               onClick={() => navigate('/traslado', { state: { animalIds: selectedIds } })}
               disabled={mutating}
-              className="flex items-center gap-1 rounded bg-white/[.06] border border-white/[.08] px-3 py-1.5 text-[11px] font-bold text-stone-200 hover:bg-white/[.1] disabled:opacity-50"
-              title="Trasladar seleccionados">
+              className="app-button-secondary disabled:opacity-50"
+              aria-label={`Trasladar ${selectedIds.length} animales seleccionados`}>
               <ArrowLeftRight size={13} /> Trasladar
             </button>
             <button
               onClick={() => setConfirmBulkDelete(true)}
               disabled={mutating}
-              className="flex items-center gap-1 rounded bg-red-500/20 border border-red-500/30 px-3 py-1.5 text-[11px] font-bold text-red-400 hover:bg-red-500/30 disabled:opacity-50"
-              title="Eliminar seleccionados">
+              className="flex min-h-11 items-center gap-1 rounded border border-danger-400/30 bg-danger-400/20 px-3 py-1.5 text-xs font-bold text-danger-400 hover:bg-danger-400/30 disabled:opacity-50"
+              aria-label={`Eliminar ${selectedIds.length} animales seleccionados`}>
               <Trash2 size={13} /> Eliminar seleccionados
             </button>
             <button
               onClick={() => setSelectedIds([])}
               disabled={mutating}
-              className="text-[11px] text-stone-400 hover:text-white">
+              className="app-button-ghost text-xs">
               Limpiar
             </button>
           </div>
         )}
       </div>
 
-      <section className="mt-4 overflow-hidden rounded-xl border border-white/[.06] bg-[#161619]">
+      <section className="app-panel mt-4 overflow-hidden" aria-busy={loading}>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-[12px] text-stone-500">
+          <div className="app-empty flex gap-2" role="status">
             <LoaderCircle size={16} className="animate-spin" /> Cargando ganado...
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-left">
-              <thead>
-                <tr className="border-b border-white/[.06] text-[12px] uppercase tracking-wider text-stone-400">
+          <div className="overflow-x-auto" tabIndex={0} aria-label="Tabla de ganado; desplazable horizontalmente en pantallas pequeñas">
+            <table className="w-full text-left md:min-w-[800px]">
+              <caption className="sr-only">Ganado filtrado y acciones por animal</caption>
+              <thead className="max-md:sr-only">
+                <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wider text-[var(--text-soft)]">
                   <th className="px-5 py-3.5 w-10">
-                    <input
-                      type="checkbox"
-                      checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                      onChange={handleSelectAll}
-                      className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                    />
+                    <label className="inline-flex size-11 items-center justify-center">
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todos los animales filtrados"
+                        checked={filtered.length > 0 && filtered.every((animal) => selectedIds.includes(animal.id))}
+                        onChange={handleSelectAll}
+                        className="size-5 rounded border-[var(--border-strong)] bg-forest-950 text-brand-500 focus:ring-[var(--focus)]"
+                      />
+                    </label>
                   </th>
                   <th className="px-5 py-3.5 font-semibold">Caravana</th>
                   <th className="px-4 py-3.5 font-semibold">Categoría</th>
                   <th className="px-4 py-3.5 font-semibold">Peso Vivo</th>
                   <th className="px-4 py-3.5 font-semibold">
                     Condición Corporal{' '}
-                    <span className="text-stone-500 font-normal lowercase">(1 al 5)</span>
+                    <span className="font-normal lowercase text-[var(--text-muted)]">(1 al 5)</span>
                   </th>
                   <th className="px-5 py-3.5 font-semibold">Estado</th>
                   <th className="px-4 py-3.5 font-semibold">Potrero</th>
                   <th className="px-4 py-3.5 font-semibold text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[.05]">
+              <tbody className="divide-y divide-sand-100/[.05] max-md:block max-md:divide-y-0 max-md:space-y-2 max-md:p-2">
                 {filtered.map((animal) => {
                   const isEditing = animal.id === editingId;
                   const isSelected = selectedIds.includes(animal.id);
@@ -487,27 +510,31 @@ export default function CattlePage() {
                   return (
                     <tr
                       key={animal.id}
-                      className={`text-[13.5px] transition ${isSelected ? 'bg-emerald-500/[0.02] text-stone-300' : 'text-stone-300'}`}>
-                      <td className="px-5 py-4 w-10">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleSelectRow(animal.id)}
-                          className="rounded border-white/[.1] bg-[#0b0b0c] text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                        />
+                      className={`text-[13.5px] text-[var(--text-soft)] transition-colors max-md:grid max-md:grid-cols-[2.75rem_minmax(0,1fr)_auto] max-md:items-center max-md:gap-y-3 max-md:rounded-xl max-md:border max-md:border-[var(--border)] max-md:p-4 ${isSelected ? 'bg-brand-500/[.12]' : 'max-md:bg-[var(--surface-muted)]'}`}>
+                      <td className="w-10 px-5 py-4 max-md:p-0">
+                        <label className="inline-flex size-11 items-center justify-center">
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar animal ${animal.caravana}`}
+                            checked={isSelected}
+                            onChange={() => handleSelectRow(animal.id)}
+                            className="size-5 rounded border-[var(--border-strong)] bg-forest-950 text-brand-500 focus:ring-[var(--focus)]"
+                          />
+                        </label>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="flex items-center gap-2 font-bold text-white text-[14px]">
-                          <Beef size={15} className="text-stone-400" />
+                      <td className="px-5 py-4 max-md:p-0">
+                        <span className="flex items-center gap-2 text-[14px] font-bold text-[var(--text)]">
+                          <Beef size={15} className="text-[var(--text-soft)]" />
                           {animal.caravana}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 max-md:col-span-3 max-md:grid max-md:grid-cols-[8rem_minmax(0,1fr)] max-md:items-center max-md:border-t max-md:border-[var(--border)] max-md:px-0 max-md:pb-0 max-md:pt-3">
+                        <span className="hidden text-xs font-semibold text-[var(--text-muted)] max-md:block">Categoría</span>
                         {isEditing ? (
                           <select
                             value={category}
                             onChange={(e) => handleCategoryChangeInEdit(e.target.value)}
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500">
+                            className="app-field min-h-11 px-2 py-1 text-[13px]">
                             {CATEGORY_OPTIONS.map((cat) => (
                               <option key={cat.value} value={cat.value}>
                                 {cat.label}
@@ -518,7 +545,8 @@ export default function CattlePage() {
                           animal.category
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 max-md:col-span-3 max-md:grid max-md:grid-cols-[8rem_minmax(0,1fr)] max-md:items-center max-md:px-0 max-md:py-0">
+                        <span className="hidden text-xs font-semibold text-[var(--text-muted)] max-md:block">Peso vivo</span>
                         {isEditing ? (
                           <input
                             type="number"
@@ -527,13 +555,14 @@ export default function CattlePage() {
                             value={weight}
                             onChange={(e) => setWeight(e.target.value)}
                             placeholder="Ej: 380"
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500"
+                            className="app-field min-h-11 px-2 py-1 text-[13px]"
                           />
                         ) : (
                           animal.weight
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 max-md:col-span-3 max-md:grid max-md:grid-cols-[8rem_minmax(0,1fr)] max-md:items-center max-md:px-0 max-md:py-0">
+                        <span className="hidden text-xs font-semibold text-[var(--text-muted)] max-md:block">Condición corporal</span>
                         {isEditing ? (
                           category === 'VACA' ? (
                             <input
@@ -549,22 +578,23 @@ export default function CattlePage() {
                               min="1"
                               max="5"
                               step="0.1"
-                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500"
+                              className="app-field min-h-11 px-2 py-1 text-[13px]"
                             />
                           ) : (
-                            <span className="text-stone-500 font-semibold text-[12px]">N/A</span>
+                            <span className="text-xs font-semibold text-[var(--text-muted)]">N/A</span>
                           )
                         ) : (
                           animal.cc
                         )}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 max-md:col-span-3 max-md:grid max-md:grid-cols-[8rem_minmax(0,1fr)] max-md:items-center max-md:px-0 max-md:py-0">
+                        <span className="hidden text-xs font-semibold text-[var(--text-muted)] max-md:block">Estado</span>
                         {isEditing ? (
                           category === 'VACA' ? (
                             <select
                               value={status}
                               onChange={(e) => setStatus(e.target.value)}
-                              className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white outline-none focus:border-stone-500 text-[12px]">
+                              className="app-field min-h-11 px-2 py-1 text-xs">
                               {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                   {opt.label}
@@ -572,22 +602,23 @@ export default function CattlePage() {
                               ))}
                             </select>
                           ) : (
-                            <span className="text-stone-500 font-semibold text-[12px]">N/A</span>
+                            <span className="text-xs font-semibold text-[var(--text-muted)]">N/A</span>
                           )
                         ) : (
                           <span
                             title={currentStatusOption ? currentStatusOption.label : animal.status}
-                            className="rounded-full bg-white/[.06] px-3 py-1 text-[11.5px] font-semibold text-stone-200">
+                            className="rounded-full bg-sand-100/[.06] px-3 py-1 text-xs font-semibold text-[var(--text)]">
                             {currentStatusOption?.fullText || animal.status || '-'}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 max-md:col-span-3 max-md:grid max-md:grid-cols-[8rem_minmax(0,1fr)] max-md:items-center max-md:px-0 max-md:py-0">
+                        <span className="hidden text-xs font-semibold text-[var(--text-muted)] max-md:block">Potrero</span>
                         {isEditing ? (
                           <select
                             value={paddockId}
                             onChange={(e) => setPaddockId(e.target.value)}
-                            className="w-full rounded border border-white/[.08] bg-[#0b0b0c] px-2 py-1 text-white text-[13px] outline-none focus:border-stone-500">
+                            className="app-field min-h-11 px-2 py-1 text-[13px]">
                             {paddockOptions.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name}
@@ -598,21 +629,21 @@ export default function CattlePage() {
                           animal.paddock
                         )}
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-4 py-4 text-right max-md:col-start-3 max-md:row-start-1 max-md:p-0">
                         {isEditing ? (
                           <div className="flex justify-end gap-1.5">
                             <button
                               onClick={() => handleSave(animal.id)}
                               disabled={mutating}
-                              className="grid size-7 place-items-center rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
-                              title="Guardar">
+                              className="grid size-11 place-items-center rounded bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 disabled:opacity-50"
+                              aria-label={`Guardar cambios de ${animal.caravana}`}>
                               {mutating ? <LoaderCircle size={13} className="animate-spin" /> : <Check size={13} />}
                             </button>
                             <button
                               onClick={handleCancel}
                               disabled={mutating}
-                              className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
-                              title="Cancelar">
+                              className="grid size-11 place-items-center rounded bg-danger-400/10 text-danger-400 hover:bg-danger-400/20 disabled:opacity-50"
+                              aria-label={`Cancelar edición de ${animal.caravana}`}>
                               <X size={13} />
                             </button>
                           </div>
@@ -621,15 +652,15 @@ export default function CattlePage() {
                             <button
                               onClick={() => startEdit(animal)}
                               disabled={mutating}
-                              className="grid size-7 place-items-center rounded bg-white/[.04] text-stone-400 hover:bg-white/[.08] hover:text-white disabled:opacity-50"
-                              title="Editar">
+                              className="grid size-11 place-items-center rounded bg-sand-100/[.04] text-[var(--text-soft)] hover:bg-sand-100/[.08] hover:text-[var(--text)] disabled:opacity-50"
+                              aria-label={`Editar animal ${animal.caravana}`}>
                               <Pencil size={12} />
                             </button>
                             <button
                               onClick={() => handleDeleteOne(animal.id)}
                               disabled={mutating}
-                              className="grid size-7 place-items-center rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
-                              title="Eliminar animal">
+                              className="grid size-11 place-items-center rounded bg-danger-400/10 text-danger-400 hover:bg-danger-400/20 disabled:opacity-50"
+                              aria-label={`Eliminar animal ${animal.caravana}`}>
                               <Trash2 size={12} />
                             </button>
                           </div>
@@ -643,9 +674,15 @@ export default function CattlePage() {
           </div>
         )}
         {!loading && filtered.length === 0 && (
-          <p className="py-12 text-center text-[12px] text-stone-500">
-            No se encontraron animales.
-          </p>
+          <div className="app-empty">
+            <div>
+              <Beef size={24} className="mx-auto mb-2" aria-hidden="true" />
+              <p className="font-semibold text-[var(--text-soft)]">
+                {cattle.length === 0 ? 'Todavía no hay ganado registrado.' : 'No hay animales que coincidan con la búsqueda.'}
+              </p>
+              {cattle.length > 0 && <p className="mt-1 text-xs">Probá cambiando la búsqueda o limpiando los filtros.</p>}
+            </div>
+          </div>
         )}
       </section>
     </div>

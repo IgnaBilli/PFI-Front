@@ -16,8 +16,7 @@ async function safeGet(path, params) {
     return await api.get(path, params)
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null
-    console.warn(`Analítica no disponible para ${path}:`, err)
-    return null
+    throw err
   }
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { X, Plus, Calculator, LoaderCircle } from 'lucide-react';
 import {
   buildCattleCreatePayload,
@@ -53,6 +53,12 @@ export default function AddCattleModal({
   const [dmiLoading, setDmiLoading] = useState(false);
   const [dmiError, setDmiError] = useState('');
   const [dmiResult, setDmiResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useRef(null);
+  const submittingRef = useRef(false);
+  const titleId = useId();
+  const descriptionId = useId();
+  const errorId = useId();
 
   const summaryPaddockId =
     lockedPaddockId ?? (selectedPaddockId ? Number(selectedPaddockId) : null);
@@ -71,7 +77,48 @@ export default function AddCattleModal({
     setDmiLoading(false);
     setDmiError('');
     setDmiResult(null);
+    setSubmitting(false);
   }, [isOpen]);
+
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
+
+  useEffect(() => {
+    if (!isOpen || variant === 'inline') return undefined;
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    const frame = requestAnimationFrame(() => {
+      dialog?.querySelector('select, input, button')?.focus();
+    });
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape' && !submittingRef.current) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialog) return;
+      const focusable = [...dialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled])')];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, [isOpen, onClose, variant]);
 
   useEffect(() => {
     setDmiResult(null);
@@ -103,7 +150,9 @@ export default function AddCattleModal({
 
   const summaryPaddockName =
     lockedPaddockLabel ?? paddocks.find((p) => String(p.id) === String(summaryPaddockId))?.name ?? '';
-  const herd = summaryPaddockId != null ? cattle.filter((a) => a.paddockId === summaryPaddockId) : [];
+  const herd = summaryPaddockId != null
+    ? cattle.filter((a) => String(a.paddockId) === String(summaryPaddockId))
+    : [];
   const herdRows = [...herd].sort((a, b) =>
     String(a.caravana).localeCompare(String(b.caravana), 'es', { numeric: true })
   );
@@ -112,8 +161,9 @@ export default function AddCattleModal({
   const herdMales = herd.filter((a) => a.sex === 'M').length;
   const herdFemales = herd.filter((a) => a.sex === 'F').length;
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (submitting) return;
     setError('');
     setWeightWarning('');
 
@@ -173,49 +223,51 @@ export default function AddCattleModal({
 
     const paddockId = lockedPaddockLabel ? null : selectedPaddockId ? Number(selectedPaddockId) : null;
 
-    onAdd({ paddockId, animals });
-    onClose();
+    setSubmitting(true);
+    try {
+      await onAdd({ paddockId, animals });
+    } catch (err) {
+      setError(err.message || 'No se pudo agregar el ganado. Revisá los datos e intentá nuevamente.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const content = (
     <>
-      <div className="flex items-center justify-between border-b border-white/[.08] pb-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src={vacaSinFondo} alt="" aria-hidden="true" className="h-11 w-14 shrink-0 object-contain opacity-70" />
           <div>
-            <h3 className="font-display text-lg text-white">Agregar Ganado</h3>
-            <p className="text-[11px] text-stone-500">
+            <h3 id={titleId} className="font-display text-lg font-bold text-[var(--text)]">Agregar ganado</h3>
+            <p id={descriptionId} className="text-xs text-[var(--text-muted)]">
               Ingresá los datos del rodeo a incorporar.
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg p-1.5 text-stone-500 hover:bg-white/[.05] hover:text-white">
-          <X size={16} />
+          disabled={submitting}
+          aria-label="Cerrar formulario para agregar ganado"
+          className="app-icon-button shrink-0 disabled:opacity-50">
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="flex justify-center pt-3 pb-1">
-        <img
-          src={vacaSinFondo}
-          alt="Vaca"
-          className="h-28 w-auto object-contain drop-shadow-lg"
-        />
-      </div>
-
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4 text-[12px]">
+      <form onSubmit={handleSubmit} aria-describedby={error ? errorId : undefined} className="mt-5 space-y-4 text-sm">
           {lockedPaddockLabel ? (
-            <div className="rounded-lg border border-white/[.06] bg-white/[.03] px-3.5 py-2.5 text-[11px] text-stone-400">
-              Se asignará al potrero <strong className="text-white">{lockedPaddockLabel}</strong> al
+            <div className="app-panel-muted px-3.5 py-2.5 text-sm text-[var(--text-soft)]">
+              Se asignará al potrero <strong className="text-[var(--text)]">{lockedPaddockLabel}</strong> al
               guardar.
             </div>
           ) : (
             <div>
-              <label className="block font-bold text-stone-400">Potrero de Destino (opcional)</label>
-              <select
+               <label htmlFor={`${titleId}-paddock`} className="app-label">Potrero de destino (opcional)</label>
+               <select
+                 id={`${titleId}-paddock`}
                 value={selectedPaddockId}
                 onChange={(e) => setSelectedPaddockId(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
+                 className="app-field">
                 <option value="">Sin potrero</option>
                 {paddocks.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -227,11 +279,12 @@ export default function AddCattleModal({
           )}
 
           <div>
-            <label className="block font-bold text-stone-400">Categoría</label>
-            <select
+             <label htmlFor={`${titleId}-category`} className="app-label">Categoría</label>
+             <select
+               id={`${titleId}-category`}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
+               className="app-field">
               {CATEGORY_OPTIONS.map((cat) => (
                 <option key={cat.value} value={cat.value}>
                   {cat.label}
@@ -240,20 +293,22 @@ export default function AddCattleModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block font-bold text-stone-400">Cantidad (cabezas)</label>
+              <label htmlFor={`${titleId}-quantity`} className="app-label">Cantidad (cabezas)</label>
               <input
+                id={`${titleId}-quantity`}
                 type="number"
                 min="1"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
+                className="app-field"
               />
             </div>
             <div>
-              <label className="block font-bold text-stone-400">Peso Vivo (kg)</label>
+              <label htmlFor={`${titleId}-weight`} className="app-label">Peso vivo (kg)</label>
               <input
+                id={`${titleId}-weight`}
                 type="number"
                 min="0"
                 step="any"
@@ -264,7 +319,7 @@ export default function AddCattleModal({
                   setWeightWarning('');
                   setWeightConfirmed(false);
                 }}
-                className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
+                className="app-field"
               />
             </div>
           </div>
@@ -272,11 +327,12 @@ export default function AddCattleModal({
           {isVaca ? (
             <>
               <div>
-                <label className="block font-bold text-stone-400">
-                  Condición Corporal{' '}
-                  <span className="text-[10px] text-stone-500 font-normal">(Escala 1.0 a 5.0)</span>
+                <label htmlFor={`${titleId}-cc`} className="app-label">
+                  Condición corporal{' '}
+                  <span className="text-xs font-normal text-[var(--text-muted)]">(Escala 1.0 a 5.0)</span>
                 </label>
                 <input
+                  id={`${titleId}-cc`}
                   type="number"
                   min="1"
                   max="5"
@@ -284,16 +340,17 @@ export default function AddCattleModal({
                   placeholder="Ej: 3.5"
                   value={cc}
                   onChange={(e) => setCc(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500"
+                  className="app-field"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-stone-400">Estado Fisiológico</label>
+                <label htmlFor={`${titleId}-status`} className="app-label">Estado fisiológico</label>
                 <select
+                  id={`${titleId}-status`}
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-white/[.08] bg-[#0b0b0c] px-3.5 py-2.5 text-white outline-none focus:border-stone-500">
+                  className="app-field">
                   {STATUS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
@@ -303,59 +360,62 @@ export default function AddCattleModal({
               </div>
             </>
           ) : (
-            <div className="rounded-lg bg-white/[.02] border border-white/[.05] p-3 text-[11px] text-stone-500">
+            <div className="app-panel-muted p-3 text-sm text-[var(--text-muted)]">
               * Para esta categoría solo se requiere Peso Vivo. La Condición Corporal y Estado
               Fisiológico no aplican.
             </div>
           )}
 
           {error && (
-            <p className="rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">
+            <p id={errorId} className="app-error" role="alert">
               {error}
             </p>
           )}
 
           {weightWarning && (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] font-medium text-amber-300">
-              ⚠️ {weightWarning}
+            <div role="alert" className="rounded-md border border-warning-400/30 bg-warning-400/10 p-3 text-sm font-medium text-warning-400">
+              {weightWarning}
             </div>
           )}
 
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-white/[.08]">
+          <div className="flex justify-end gap-2.5 border-t border-[var(--border)] pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2.5 font-semibold text-stone-400 hover:bg-white/[.05] hover:text-white">
+              disabled={submitting}
+              className="app-button-ghost disabled:opacity-50">
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2.5 font-bold text-black hover:bg-emerald-400">
-              <Plus size={14} /> {weightConfirmed ? 'Confirmar y Agregar al Rodeo' : 'Agregar al Rodeo'}
+              disabled={submitting}
+              className="app-button-primary disabled:opacity-50">
+              {submitting ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
+              {submitting ? 'Agregando...' : weightConfirmed ? 'Confirmar y agregar al rodeo' : 'Agregar al rodeo'}
             </button>
           </div>
         </form>
 
         {summaryPaddockId != null && (
-          <div className="mt-5 border-t border-white/[.08] pt-4">
-            <h4 className="font-display text-sm text-white">
+          <div className="mt-5 border-t border-[var(--border)] pt-4">
+            <h4 className="font-display text-sm text-[var(--text)]">
               Resumen del Rodeo{summaryPaddockName ? ` — ${summaryPaddockName}` : ''}
             </h4>
             {herdTotal === 0 ? (
-              <p className="mt-1.5 text-[11px] text-stone-500">
+              <p className="mt-1.5 text-sm text-[var(--text-muted)]">
                 Este potrero todavía no tiene ganado registrado.
               </p>
             ) : (
               <>
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-stone-500">
+                  <p className="text-xs text-[var(--text-muted)]">
                     {herdTotal} {herdTotal === 1 ? 'cabeza' : 'cabezas'} actualmente en este potrero.
                   </p>
                   <button
                     type="button"
                     onClick={handleCalculateDmi}
                     disabled={dmiLoading}
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[.08] bg-white/[.03] px-3 py-1.5 text-[11px] font-bold text-stone-300 hover:bg-white/[.06] disabled:opacity-50">
+                    className="app-button-secondary shrink-0 px-3 text-xs disabled:opacity-50">
                     {dmiLoading ? (
                       <LoaderCircle size={12} className="animate-spin" />
                     ) : (
@@ -366,19 +426,19 @@ export default function AddCattleModal({
                 </div>
 
                 {dmiError && (
-                  <p className="mt-2 rounded-md bg-red-500/10 p-2.5 text-[11px] font-semibold text-red-400">
+                  <p role="alert" className="app-error mt-2 text-sm font-semibold">
                     {dmiError}
                   </p>
                 )}
 
                 {dmiResult && (
-                  <div className="mt-2 rounded-lg border border-white/[.06] bg-white/[.03] px-3.5 py-2.5 text-[11px] text-stone-300">
+                  <div role="status" aria-live="polite" className="app-panel-muted mt-2 px-3.5 py-2.5 text-sm text-[var(--text-soft)]">
                     Consumo total del potrero:{' '}
-                    <strong className="text-white">
+                    <strong className="text-[var(--text)]">
                       {Number(dmiResult.kg_materia_seca_dia).toFixed(2)} kg MS/día
                     </strong>
                     {dmiResult.advertencias?.length > 0 && (
-                      <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[10px] text-amber-400">
+                      <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-sm text-warning-400">
                         {dmiResult.advertencias.map((a, i) => (
                           <li key={i}>{a}</li>
                         ))}
@@ -387,9 +447,9 @@ export default function AddCattleModal({
                   </div>
                 )}
 
-                <div className="mt-3 max-h-52 overflow-auto rounded-lg border border-white/[.06]">
-                  <table className="w-full min-w-[500px] text-left text-[11px]">
-                    <thead className="sticky top-0 z-10 border-b border-white/[.06] bg-[#161619] text-[10px] uppercase tracking-wider text-stone-500 shadow-sm">
+                <div className="mt-3 max-h-52 overflow-auto rounded-lg border border-[var(--border)]">
+                  <table className="w-full min-w-[500px] text-left text-xs">
+                    <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-forest-900 text-xs uppercase tracking-wider text-[var(--text-muted)] shadow-sm">
                       <tr>
                         <th className="px-3 py-2 font-bold">Caravana</th>
                         <th className="px-3 py-2 font-bold">Categoría</th>
@@ -400,12 +460,12 @@ export default function AddCattleModal({
                         <th className="px-3 py-2 text-right font-bold">DMI</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[.05] text-stone-300">
+                    <tbody className="divide-y divide-sand-100/[.05] text-[var(--text-soft)]">
                       {herdRows.map((animal) => {
                         const prediction = dmiByAnimalId.get(String(animal.id));
                         return (
-                          <tr key={animal.id} className="hover:bg-white/[.02] transition-colors">
-                            <td className="px-3 py-2 font-semibold text-white">{animal.caravana}</td>
+                          <tr key={animal.id} className="transition-colors hover:bg-sand-100/[.02]">
+                            <td className="px-3 py-2 font-semibold text-[var(--text)]">{animal.caravana}</td>
                             <td className="px-3 py-2">{animal.category}</td>
                             <td className="px-3 py-2">{animal.sex === 'M' ? 'Macho' : 'Hembra'}</td>
                             <td className="px-3 py-2 text-right">{animal.weight}</td>
@@ -422,7 +482,7 @@ export default function AddCattleModal({
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-2 flex gap-4 text-[11px] text-stone-400">
+                <div className="mt-2 flex gap-4 text-xs text-[var(--text-soft)]">
                   <span>Machos: {herdMales}</span>
                   <span>Hembras: {herdFemales}</span>
                 </div>
@@ -434,12 +494,18 @@ export default function AddCattleModal({
   );
 
   if (variant === 'inline') {
-    return <div className="text-stone-300">{content}</div>;
+    return <div className="text-[var(--text-soft)]">{content}</div>;
   }
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#161619] p-6 text-stone-300 shadow-2xl">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/75 p-3 sm:p-5">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="app-panel max-h-[92vh] w-full max-w-2xl overflow-y-auto p-4 text-[var(--text-soft)] shadow-[var(--shadow-raised)] sm:p-6">
         {content}
       </div>
     </div>

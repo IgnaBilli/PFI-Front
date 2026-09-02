@@ -21,9 +21,16 @@ vi.mock('../services/estanciaService.js', () => ({
 // logic — adding a point, then dragging it, exactly like potreros — can be
 // exercised without touching Leaflet.
 vi.mock('../components/PolygonMapCanvas.jsx', () => ({
-  default: ({ isDrawing, onMapClick, onVertexDrag }) => (
-    <div data-testid="polygon-map-canvas" data-is-drawing={String(isDrawing)}>
+  default: ({ isDrawing, invalid, onMapClick, onVertexDrag }) => (
+    <div
+      data-testid="polygon-map-canvas"
+      data-is-drawing={String(isDrawing)}
+      data-invalid={String(invalid)}>
       <button onClick={() => onMapClick(-31.4, -64.2)}>mock-add-vertex</button>
+      <button onClick={() => onMapClick(0, 0)}>mock-add-a</button>
+      <button onClick={() => onMapClick(1, 1)}>mock-add-b</button>
+      <button onClick={() => onMapClick(0, 1)}>mock-add-c</button>
+      <button onClick={() => onMapClick(1, 0)}>mock-add-d</button>
       {onVertexDrag && <button onClick={() => onVertexDrag(0, -30, -60)}>mock-drag-vertex-0</button>}
     </div>
   ),
@@ -70,5 +77,20 @@ describe('OnboardingEstanciaPage', () => {
     expect(screen.queryByText('Agregar coordenada exacta')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Latitud')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Longitud')).not.toBeInTheDocument();
+  });
+
+  it('uses the shared polygon validation and blocks a self-intersecting boundary', async () => {
+    const user = userEvent.setup();
+    render(<OnboardingEstanciaPage />);
+
+    await user.type(screen.getByLabelText('1. Nombre de la estancia'), 'La Esperanza');
+    await user.click(screen.getByText('mock-add-a'));
+    await user.click(screen.getByText('mock-add-b'));
+    await user.click(screen.getByText('mock-add-c'));
+    await user.click(screen.getByText('mock-add-d'));
+
+    expect(screen.getByTestId('polygon-map-canvas')).toHaveAttribute('data-invalid', 'true');
+    expect(screen.getByText(/El polígono se cruza a sí mismo/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear estancia' })).toBeDisabled();
   });
 });

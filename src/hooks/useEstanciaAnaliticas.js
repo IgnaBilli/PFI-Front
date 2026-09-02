@@ -4,22 +4,29 @@ import { fetchEstanciaAnaliticas, fetchTrasladoAnaliticas } from '../services/an
 export default function useEstanciaAnaliticas(estanciaId) {
   const [analiticas, setAnaliticas] = useState(null)
   const [traslados, setTraslados] = useState(null)
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(Boolean(estanciaId))
 
   useEffect(() => {
     if (!estanciaId) {
       setAnaliticas(null)
       setTraslados(null)
+      setErrors({})
       setLoading(false)
       return undefined
     }
     let cancelled = false
     setLoading(true)
-    Promise.all([fetchEstanciaAnaliticas(estanciaId), fetchTrasladoAnaliticas(estanciaId)])
+    setErrors({})
+    Promise.allSettled([fetchEstanciaAnaliticas(estanciaId), fetchTrasladoAnaliticas(estanciaId)])
       .then(([consumo, traslado]) => {
         if (cancelled) return
-        setAnaliticas(consumo)
-        setTraslados(traslado)
+        setAnaliticas(consumo.status === 'fulfilled' ? consumo.value : null)
+        setTraslados(traslado.status === 'fulfilled' ? traslado.value : null)
+        setErrors({
+          ...(consumo.status === 'rejected' ? { analiticas: consumo.reason } : {}),
+          ...(traslado.status === 'rejected' ? { traslados: traslado.reason } : {}),
+        })
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -29,5 +36,6 @@ export default function useEstanciaAnaliticas(estanciaId) {
     }
   }, [estanciaId])
 
-  return { analiticas, traslados, loading }
+  const error = errors.analiticas ?? errors.traslados ?? null
+  return { analiticas, traslados, loading, error, errors }
 }

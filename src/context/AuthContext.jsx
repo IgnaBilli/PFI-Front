@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
     setSession(nextToken, nextUser)
     setToken(nextToken)
     setUser(nextUser)
-    const estanciaData = await refreshEstancia().catch(() => null)
+    const estanciaData = await refreshEstancia()
     return { hasEstancia: Boolean(estanciaData) }
   }, [refreshEstancia])
 

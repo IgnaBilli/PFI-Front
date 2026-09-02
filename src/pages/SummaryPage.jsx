@@ -5,8 +5,9 @@ import {
   AlertTriangle,
   Lightbulb,
   CheckCircle2,
-  LoaderCircle,
   Sprout,
+  ArrowRight,
+  Clock3,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
@@ -24,14 +25,29 @@ import { formatShortDate } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
 import TrendLineChart from '../components/TrendLineChart.jsx';
 
-const FORAGE_COLOR = '#199e70';
+const FORAGE_COLOR = '#4a846d';
+
+function getTimestamp(item) {
+  const value =
+    item?.fecha_calculo ?? item?.fecha_generacion ?? item?.fecha ?? item?.created_at ?? null;
+  const timestamp = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getErrorMessage(error) {
+  return typeof error === 'string' ? error : error?.message || '';
+}
+
+function LoadingBlock({ className = 'h-24' }) {
+  return <div className={`app-skeleton rounded-xl ${className}`} aria-hidden="true" />;
+}
 
 // Lista de barras horizontales: una por potrero, magnitud = % de forraje de
 // la estancia que aporta (secuencial, un solo hue, sin ranking por color).
 function ForageDistributionList({ rows }) {
   if (rows.length === 0) {
     return (
-      <p className="mt-4 text-[11px] text-stone-500">
+      <p className="mt-4 text-xs text-sand-500">
         Todavía no hay mediciones de disponibilidad forrajera en ningún potrero.
       </p>
     );
@@ -41,9 +57,9 @@ function ForageDistributionList({ rows }) {
     <div className="mt-4 space-y-3">
       {sorted.map((row) => (
         <div key={row.id_potrero}>
-          <div className="flex items-center justify-between gap-2 text-[11px]">
-            <span className="truncate font-semibold text-stone-300">{row.nombre}</span>
-            <span className="shrink-0 text-stone-500">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="truncate font-semibold text-sand-300">{row.nombre}</span>
+            <span className="shrink-0 text-sand-500">
               {Number(row.porcentaje).toFixed(0)}% · {Number(row.kg_materia_seca_total).toFixed(0)}{' '}
               kg MS
             </span>
@@ -68,24 +84,36 @@ export default function SummaryPage() {
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
   const { cattle, loading: cattleLoading, error: cattleError } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
-  const { dataById, loading: analyticsLoading } = usePaddockAnalytics(paddocksWithCounts);
+  const paddockAnalytics = usePaddockAnalytics(paddocksWithCounts);
+  const {
+    dataById,
+    loading: analyticsLoading,
+    error: paddockAnalyticsError = '',
+  } = paddockAnalytics;
+  const estanciaAnalytics = useEstanciaAnaliticas(estanciaId);
   const {
     analiticas,
     traslados: trasladoAnaliticas,
     loading: estanciaAnaliticasLoading,
-  } = useEstanciaAnaliticas(estanciaId);
+    error: estanciaAnaliticasError = '',
+    analiticasError = '',
+    trasladosError = '',
+    errors: estanciaErrors = {},
+  } = estanciaAnalytics;
 
   const loading = paddocksLoading || cattleLoading;
 
   const activePaddocks = paddocksWithCounts.filter((p) => p.active);
-  const alerts = paddocksWithCounts.filter(
+  const alertPaddocks = paddocksWithCounts.filter(
     (p) =>
       (dataById[p.id]?.recommendation?.prioridad ?? dataById[p.id]?.recommendation?.tipo) ===
       'REDUCIR_CARGA'
-  ).length;
-  const recommendationsCount = paddocksWithCounts.filter(
-    (p) => dataById[p.id]?.recommendation
-  ).length;
+  );
+  const recommendationPaddocks = paddocksWithCounts.filter(
+    (p) => dataById[p.id]?.recommendation && !alertPaddocks.includes(p)
+  );
+  const attentionPaddocks = [...alertPaddocks, ...recommendationPaddocks];
+  const recommendationsCount = alertPaddocks.length + recommendationPaddocks.length;
 
   const cargaAnimalSegments = (analiticas?.distribucionCargaAnimal ?? []).map((row) => {
     const label = CATEGORY_API_TO_UI[row.categoria] ?? row.categoria;
@@ -103,169 +131,216 @@ export default function SummaryPage() {
     .sort((a, b) => a.t - b.t);
 
   const rutasFrecuentes = trasladoAnaliticas?.rutasMasFrecuentes ?? [];
+  const sourceTimestamps = paddocksWithCounts.flatMap((paddock) => {
+    const entry = dataById[paddock.id];
+    return [getTimestamp(entry?.forage), getTimestamp(entry?.nutrition), getTimestamp(entry?.recommendation)];
+  });
+  const latestTimestamp = [...sourceTimestamps, ...forageGrowthPoints.map((point) => point.t)]
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a)[0];
+  const pageError = getErrorMessage(paddocksError) || getErrorMessage(cattleError);
+  const paddockAnalyticsErrorMessage = getErrorMessage(paddockAnalyticsError);
+  const estanciaDataError =
+    getErrorMessage(estanciaErrors.analiticas) ||
+    getErrorMessage(analiticasError) ||
+    (!estanciaErrors.traslados ? getErrorMessage(estanciaAnaliticasError) : '');
+  const analyticsError = paddockAnalyticsErrorMessage || estanciaDataError;
+  const movementError =
+    getErrorMessage(estanciaErrors.traslados) || getErrorMessage(trasladosError);
 
   return (
-    <div className="min-h-full px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl text-white">{estancia?.nombre || 'Mi estancia'}</h1>
-          <p className="mt-0.5 text-[11px] text-stone-500">{paddocksWithCounts.length} Potreros</p>
+    <div className="app-page text-sm">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-2xl font-bold text-white">
+            {estancia?.nombre || 'Mi estancia'}
+          </h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-sand-500">
+            <span>{paddocksWithCounts.length} potreros</span>
+            {latestTimestamp && (
+              <span className="flex items-center gap-1.5">
+                <Clock3 size={12} aria-hidden="true" /> Último dato: {formatShortDate(latestTimestamp)}
+              </span>
+            )}
+          </p>
         </div>
         <Link
           to="/mapa"
-          className="flex items-center gap-1.5 rounded-lg border border-white/[.08] bg-[#161619] px-3.5 py-2 text-[11px] font-semibold text-stone-300 hover:bg-white/[.04]">
-          <LandPlot size={13} className="text-stone-400" /> Ver mapa general
+          className="app-button-secondary self-start px-4 text-xs sm:self-auto">
+          <LandPlot size={15} aria-hidden="true" /> Ver mapa general
         </Link>
       </header>
 
-      {(paddocksError || cattleError) && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
-          {paddocksError || cattleError}
-        </p>
+      {pageError && (
+        <div className="app-error mt-5" role="alert">
+          <strong className="block text-sm">No se pudo actualizar todo el resumen</strong>
+          <span className="mt-0.5 block text-xs">{pageError} Los datos disponibles siguen visibles.</span>
+        </div>
       )}
 
-      {/* Indicadores principales */}
-      <section className="mt-6 grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-xl border border-white/[.05] bg-[#161619] p-4 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-[#222227] text-white">
-            <Beef size={18} />
-          </span>
+      <section className="app-panel mt-6 overflow-hidden" aria-labelledby="attention-heading">
+        <div className="flex flex-col gap-2 border-b border-sand-100/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <strong className="block text-base font-bold text-white">{cattle.length}</strong>
-            <span className="block text-[10px] text-stone-500">Cabezas en el campo</span>
+            <h2 id="attention-heading" className="text-base font-bold text-white">
+              Atención y acciones
+            </h2>
+            <p className="mt-0.5 text-xs text-sand-500">
+              Recomendaciones que requieren revisión en tus potreros.
+            </p>
           </div>
-        </article>
-
-        <article className="rounded-xl border border-white/[.05] bg-[#161619] p-4 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-[#222227] text-white">
-            <LandPlot size={18} />
-          </span>
-          <div>
-            <strong className="block text-base font-bold text-white">
-              {activePaddocks.length}
-            </strong>
-            <span className="block text-[10px] text-stone-500">Potreros activos</span>
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-white/[.05] bg-[#161619] p-4 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-[#d32f2f]/10 text-[#f44336]">
-            <AlertTriangle size={18} />
-          </span>
-          <div>
-            <strong className="block text-base font-bold text-white">{alerts}</strong>
-            <span className="block text-[10px] text-stone-500">Potreros con alerta</span>
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-white/[.05] bg-[#161619] p-4 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-lg bg-white/[.05] text-stone-300">
-            <Lightbulb size={18} />
-          </span>
-          <div>
-            <strong className="block text-base font-bold text-white">{recommendationsCount}</strong>
-            <span className="block text-[10px] text-stone-500">Recomendaciones</span>
-          </div>
-        </article>
-      </section>
-
-      {/* Estado de los potreros */}
-      <section className="mt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-bold text-white">Estado de los potreros</h2>
-          <Link
-            to="/potreros"
-            className="text-[10px] font-semibold text-stone-500 hover:text-white">
-            Ver todos
-          </Link>
+          {!analyticsLoading && (
+            <span className="text-xs font-semibold text-sand-300">
+              {recommendationsCount} {recommendationsCount === 1 ? 'pendiente' : 'pendientes'}
+            </span>
+          )}
         </div>
-
-        {loading ? (
-          <div className="mt-6 flex items-center justify-center gap-2 text-[12px] text-stone-500">
-            <LoaderCircle size={16} className="animate-spin" /> Cargando potreros...
+        {analyticsLoading ? (
+          <div className="grid gap-3 p-4 sm:grid-cols-2" aria-label="Cargando acciones">
+            <LoadingBlock className="h-20" />
+            <LoadingBlock className="h-20" />
           </div>
-        ) : paddocksWithCounts.length === 0 ? (
-          <p className="mt-6 text-center text-[12px] text-stone-500">
-            Todavía no hay potreros creados.
-          </p>
+        ) : paddockAnalyticsErrorMessage && attentionPaddocks.length === 0 ? (
+          <div className="flex items-center gap-3 px-5 py-5 text-sm text-warning-400">
+            <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
+            <span>No se pudieron comprobar las recomendaciones de los potreros.</span>
+          </div>
+        ) : attentionPaddocks.length === 0 ? (
+          <div className="flex items-center gap-3 px-5 py-5 text-sm text-sand-300">
+            <CheckCircle2 size={18} className="shrink-0 text-brand-400" aria-hidden="true" />
+            <span>No hay recomendaciones pendientes con los datos disponibles.</span>
+          </div>
         ) : (
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {paddocksWithCounts.map((paddock) => {
+          <div className="grid gap-px bg-sand-100/10 sm:grid-cols-2">
+            {attentionPaddocks.map((paddock) => {
               const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
-
+              const isAlert = Boolean(details.alert);
               return (
-                <article
+                <Link
                   key={paddock.id}
-                  className="rounded-xl border border-white/[.05] bg-[#161619] p-5 text-[11px] text-stone-400 flex flex-col justify-between min-h-[170px]">
-                  <div>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-[13px] font-bold text-white leading-tight">
-                          {paddock.name}
-                        </h3>
-                        <p className="mt-0.5 text-stone-500 font-medium">
-                          {paddock.hectares.toFixed(0)} ha
-                        </p>
-                      </div>
-                      <span
-                        className="rounded-full px-2 py-0.5 font-semibold text-[10px]"
-                        style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
-                        {analyticsLoading ? '...' : details.status}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <LandPlot size={13} className="text-stone-500" />
-                        <strong>{paddock.animals}</strong> cabezas
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {details.alert && (
-                      <div className="flex items-center gap-1.5 rounded-lg bg-red-500/10 p-2 text-red-400 text-[10px] font-medium leading-normal">
-                        <AlertTriangle size={13} className="shrink-0" />
-                        <span>{details.alert}</span>
-                      </div>
-                    )}
-                    {details.recommendation && (
-                      <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 p-2 text-amber-400 text-[10px] font-medium leading-normal">
-                        <AlertTriangle size={13} className="shrink-0" />
-                        <span>{details.recommendation}</span>
-                      </div>
-                    )}
-                    {details.ok && (
-                      <div className="flex items-center gap-1.5 rounded-lg bg-white/[.03] p-2 text-stone-300 text-[10px] font-medium leading-normal">
-                        <CheckCircle2 size={13} className="shrink-0 text-stone-550" />
-                        <span>{details.ok}</span>
-                      </div>
-                    )}
-                  </div>
-                </article>
+                  to={`/potreros/${paddock.id}`}
+                  className="group flex min-w-0 items-center gap-3 bg-forest-800 px-5 py-4 transition-colors hover:bg-forest-700">
+                  {isAlert ? (
+                    <AlertTriangle size={18} className="shrink-0 text-danger-400" aria-hidden="true" />
+                  ) : (
+                    <Lightbulb size={18} className="shrink-0 text-warning-400" aria-hidden="true" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm text-white">{paddock.name}</strong>
+                    <span className={`mt-0.5 block truncate text-xs ${isAlert ? 'text-danger-400' : 'text-warning-400'}`}>
+                      {details.alert || details.recommendation}
+                    </span>
+                  </span>
+                  <ArrowRight size={16} className="shrink-0 text-sand-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </Link>
               );
             })}
           </div>
         )}
       </section>
 
-      {/* Analítica de la estancia */}
-      <section className="mt-6">
-        <h2 className="text-[13px] font-bold text-white">Analítica de la estancia</h2>
-        <p className="mt-0.5 text-[11px] text-stone-500">
+      <section className="app-panel mt-4 grid grid-cols-2 divide-x divide-y divide-sand-100/10 overflow-hidden lg:grid-cols-4 lg:divide-y-0" aria-label="Indicadores principales">
+        {loading ? (
+          Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="p-4"><LoadingBlock className="h-12" /></div>
+          ))
+        ) : (
+          <>
+            {[
+              [cattleError ? '—' : cattle.length, 'Cabezas en el campo', Beef],
+              [paddocksError ? '—' : activePaddocks.length, 'Potreros activos', LandPlot],
+              [paddocksError || paddockAnalyticsError ? '—' : alertPaddocks.length, 'Alertas de carga', AlertTriangle],
+              [paddocksError || paddockAnalyticsError ? '—' : recommendationsCount, 'Recomendaciones', Lightbulb],
+            ].map(([value, label, Icon]) => (
+              <div key={label} className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
+                <Icon size={17} className="shrink-0 text-sand-500" aria-hidden="true" />
+                <span className="min-w-0">
+                  <strong className="block text-xl font-bold tabular-nums text-white">{value}</strong>
+                  <span className="block text-xs leading-tight text-sand-500">{label}</span>
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+
+      <section className="mt-8" aria-labelledby="paddock-status-heading">
+        <div className="flex items-center justify-between">
+          <h2 id="paddock-status-heading" className="text-base font-bold text-white">Estado de los potreros</h2>
+          <Link
+            to="/potreros"
+            className="app-button-ghost min-h-9 text-xs">
+            Ver todos <ArrowRight size={14} aria-hidden="true" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Cargando potreros">
+            {Array.from({ length: 3 }, (_, index) => <LoadingBlock key={index} className="h-40" />)}
+          </div>
+        ) : paddocksWithCounts.length === 0 ? (
+          <div className="app-panel app-empty mt-3">
+            <div>
+              <p className="text-sm text-sand-300">Todavía no hay potreros creados.</p>
+              <Link to="/mapa" className="app-button-primary mt-4 px-4 text-xs">Crear en el mapa</Link>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {paddocksWithCounts.map((paddock) => {
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+
+              return (
+                <Link
+                  key={paddock.id}
+                  to={`/potreros/${paddock.id}`}
+                  className="app-panel group flex min-h-40 flex-col justify-between p-5 transition-colors hover:border-sand-100/25 hover:bg-forest-700">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-bold text-white">{paddock.name}</h3>
+                      <p className="mt-1 text-xs text-sand-500">
+                        {Number(paddock.hectares).toFixed(0)} ha · {paddock.animals} cabezas
+                      </p>
+                    </div>
+                    <span
+                      className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold"
+                      style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
+                      {analyticsLoading ? 'Cargando' : details.status}
+                    </span>
+                  </div>
+                  <div className="mt-5 flex items-end justify-between gap-3">
+                    <span className={`line-clamp-2 text-xs leading-relaxed ${details.alert ? 'text-danger-400' : details.recommendation ? 'text-warning-400' : 'text-sand-300'}`}>
+                      {details.alert || details.recommendation || details.ok || 'Sin mediciones disponibles'}
+                    </span>
+                    <ArrowRight size={15} className="shrink-0 text-sand-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8" aria-labelledby="analytics-heading">
+        <h2 id="analytics-heading" className="text-base font-bold text-white">Analítica de la estancia</h2>
+        <p className="mt-1 max-w-2xl text-xs text-sand-500">
           Agregado de todos los potreros: carga animal, forraje y movimientos de ganado.
         </p>
+        {analyticsError && (
+          <div className="app-error mt-3 text-xs" role="status">
+            {analyticsError} Algunas analíticas pueden no estar disponibles.
+          </div>
+        )}
 
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+          <article className="app-panel p-5">
             <div className="flex items-center gap-2">
-              <Beef size={15} className="text-stone-400" />
-              <h3 className="text-[12px] font-bold text-stone-200">Carga animal por categoría</h3>
+              <Beef size={16} className="text-sand-500" aria-hidden="true" />
+              <h3 className="text-sm font-bold text-sand-100">Carga animal por categoría</h3>
             </div>
             {estanciaAnaliticasLoading ? (
-              <div className="mt-6 flex items-center justify-center gap-2 py-8 text-[11px] text-stone-500">
-                <LoaderCircle size={14} className="animate-spin" /> Cargando...
-              </div>
+              <LoadingBlock className="mt-4 h-64" />
+            ) : estanciaDataError ? (
+              <p className="app-empty min-h-64 text-xs">No se pudo cargar esta distribución.</p>
             ) : (
               <DonutChart
                 segments={cargaAnimalSegments}
@@ -275,37 +350,64 @@ export default function SummaryPage() {
             )}
           </article>
 
-          <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5">
+          <article className="app-panel p-5">
             <div className="flex items-center gap-2">
-              <Sprout size={15} className="text-stone-400" />
-              <h3 className="text-[12px] font-bold text-stone-200">Forraje por potrero</h3>
+              <Sprout size={16} className="text-sand-500" aria-hidden="true" />
+              <h3 className="text-sm font-bold text-sand-100">Forraje por potrero</h3>
             </div>
             {estanciaAnaliticasLoading ? (
-              <div className="mt-6 flex items-center justify-center gap-2 py-8 text-[11px] text-stone-500">
-                <LoaderCircle size={14} className="animate-spin" /> Cargando...
-              </div>
+              <LoadingBlock className="mt-4 h-64" />
+            ) : estanciaDataError ? (
+              <p className="app-empty min-h-64 text-xs">No se pudo cargar la distribución de forraje.</p>
             ) : (
               <ForageDistributionList rows={analiticas?.distribucionForraje ?? []} />
             )}
           </article>
 
-
-
-          <article className="rounded-xl border border-white/[.06] bg-[#161619] p-5 lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight size={15} className="text-stone-400" />
-              <h3 className="text-[12px] font-bold text-stone-200">Traslados de ganado</h3>
+          <article className="app-panel p-5 lg:col-span-2">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Sprout size={16} className="text-brand-400" aria-hidden="true" />
+                <h3 className="text-sm font-bold text-sand-100">Crecimiento de forraje · 7 días</h3>
+              </div>
+              {forageGrowthPoints.length > 0 && (
+                <span className="text-xs text-sand-500">
+                  Datos al {formatShortDate(forageGrowthPoints[forageGrowthPoints.length - 1].t)}
+                </span>
+              )}
             </div>
-
             {estanciaAnaliticasLoading ? (
-              <div className="mt-6 flex items-center justify-center gap-2 py-8 text-[11px] text-stone-500">
-                <LoaderCircle size={14} className="animate-spin" /> Cargando...
+              <LoadingBlock className="mt-4 h-52" />
+            ) : estanciaDataError ? (
+              <p className="app-empty min-h-52 text-xs">No se pudo cargar el crecimiento de los últimos 7 días.</p>
+            ) : (
+              <TrendLineChart
+                points={forageGrowthPoints}
+                color={FORAGE_COLOR}
+                formatX={formatShortDate}
+                formatTooltip={(point) => `${formatShortDate(point.t)} · ${point.value.toFixed(0)} kg MS/ha`}
+                emptyMessage="Todavía no hay suficientes mediciones en los últimos 7 días."
+                ariaLabel="Crecimiento promedio de forraje durante los últimos 7 días"
+              />
+            )}
+          </article>
+
+          <article className="app-panel p-5 lg:col-span-2">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight size={16} className="text-sand-500" aria-hidden="true" />
+              <h3 className="text-sm font-bold text-sand-100">Traslados de ganado</h3>
+            </div>
+            {estanciaAnaliticasLoading ? (
+              <LoadingBlock className="mt-4 h-40" />
+            ) : movementError ? (
+              <div className="app-error mt-3 text-xs" role="status">
+                {movementError} No se muestran totales para evitar datos incompletos.
               </div>
             ) : (
               <>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:w-72">
                   <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    <p className="text-xs font-bold uppercase tracking-wider text-sand-500">
                       Traslados
                     </p>
                     <p className="mt-1 text-[17px] font-bold text-white">
@@ -313,7 +415,7 @@ export default function SummaryPage() {
                     </p>
                   </div>
                   <div className="rounded-lg border border-white/[.06] bg-white/[.02] p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                    <p className="text-xs font-bold uppercase tracking-wider text-sand-500">
                       Animales movidos
                     </p>
                     <p className="mt-1 text-[17px] font-bold text-white">
@@ -322,9 +424,9 @@ export default function SummaryPage() {
                   </div>
                 </div>
 
-                <h4 className="mt-5 text-[11px] font-bold text-stone-300">Rutas más frecuentes</h4>
+                <h4 className="mt-5 text-xs font-bold text-sand-300">Rutas más frecuentes</h4>
                 {rutasFrecuentes.length === 0 ? (
-                  <p className="mt-2 text-[11px] text-stone-500">
+                  <p className="mt-2 text-xs text-sand-500">
                     Todavía no hay traslados registrados.
                   </p>
                 ) : (
@@ -332,17 +434,17 @@ export default function SummaryPage() {
                     {rutasFrecuentes.map((ruta, index) => (
                       <div
                         key={`${ruta.id_potrero_origen}-${ruta.id_potrero_destino}-${index}`}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-white/[.06] bg-white/[.02] px-3.5 py-2.5 text-[11px]">
-                        <span className="flex min-w-0 items-center gap-1.5 text-stone-300">
+                        className="flex items-center justify-between gap-2 rounded-lg border border-sand-100/10 bg-sand-100/[.02] px-3.5 py-2.5 text-xs">
+                        <span className="flex min-w-0 items-center gap-1.5 text-sand-300">
                           <span className="truncate font-semibold text-white">
                             {ruta.potrero_origen_nombre}
                           </span>
-                          <ArrowLeftRight size={11} className="shrink-0 text-stone-500" />
+                          <ArrowLeftRight size={12} className="shrink-0 text-sand-500" />
                           <span className="truncate font-semibold text-white">
                             {ruta.potrero_destino_nombre}
                           </span>
                         </span>
-                        <span className="shrink-0 text-stone-500">
+                        <span className="shrink-0 text-sand-500">
                           {ruta.cantidad_animales}{' '}
                           {ruta.cantidad_animales === 1 ? 'animal' : 'animales'}
                         </span>

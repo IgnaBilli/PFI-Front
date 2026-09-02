@@ -4,10 +4,10 @@ import {
   AlertTriangle,
   Beef,
   CheckCircle2,
-  LoaderCircle,
   Plus,
+  ArrowRight,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
@@ -22,7 +22,7 @@ import AddCattleModal from '../components/AddCattleModal.jsx';
 function PaddockShapeIcon({ paddock, color }) {
   const points = polygonToViewBoxPoints(paddock.coordinates);
   return (
-    <div className="relative h-24 overflow-hidden" style={{ backgroundColor: '#0e140f' }}>
+    <div className="relative h-28 overflow-hidden bg-forest-950" aria-hidden="true">
       <div
         className="absolute inset-0 opacity-20"
         style={{
@@ -31,7 +31,7 @@ function PaddockShapeIcon({ paddock, color }) {
           color,
         }}
       />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#161619] via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-forest-800 via-transparent to-transparent" />
       {points && (
         <svg
           viewBox="0 0 100 100"
@@ -51,38 +51,59 @@ function PaddockShapeIcon({ paddock, color }) {
 }
 
 export default function PaddocksPage() {
-  const navigate = useNavigate();
   const { estanciaId } = useAuth();
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
-  const { cattle, loading: cattleLoading, reload: reloadCattle } = useCattle(estanciaId);
+  const {
+    cattle,
+    loading: cattleLoading,
+    error: cattleError,
+    reload: reloadCattle,
+  } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
-  const { dataById, loading: analyticsLoading } = usePaddockAnalytics(paddocksWithCounts);
+  const paddockAnalytics = usePaddockAnalytics(paddocksWithCounts);
+  const {
+    dataById,
+    loading: analyticsLoading,
+    error: analyticsError = '',
+  } = paddockAnalytics;
 
   const loading = paddocksLoading || cattleLoading;
 
   const [addingToPaddock, setAddingToPaddock] = useState(null);
   const [mutating, setMutating] = useState(false);
   const [actionError, setActionError] = useState('');
+  const sourceError = paddocksError || cattleError;
+  const sourceErrorMessage =
+    typeof sourceError === 'string' ? sourceError : sourceError?.message || '';
+  const analyticsErrorMessage =
+    typeof analyticsError === 'string' ? analyticsError : analyticsError?.message || '';
 
   async function handleAddCattle({ animals }) {
-    if (!addingToPaddock) return;
+    if (!addingToPaddock) throw new Error('Seleccioná un potrero antes de agregar ganado.');
     setMutating(true);
     setActionError('');
+    let createdCount = 0;
     try {
       for (const payload of animals) {
         await createCattleForPaddock(addingToPaddock.id, payload);
+        createdCount += 1;
       }
       await reloadCattle();
       setAddingToPaddock(null);
     } catch (err) {
-      setActionError(err.message || 'No se pudo agregar el ganado.');
+      if (createdCount > 0) await reloadCattle().catch(() => {});
+      const message = createdCount > 0
+        ? `Se registraron ${createdCount} ${createdCount === 1 ? 'animal' : 'animales'}, pero el lote quedó incompleto. Revisá el rodeo antes de reintentar.`
+        : err.message || 'No se pudo agregar el ganado.';
+      setActionError(message);
+      throw new Error(message, { cause: err });
     } finally {
       setMutating(false);
     }
   }
 
   return (
-    <div className="min-h-full px-4 pb-8 pt-16 sm:px-7 md:pt-7 lg:px-10 text-sm">
+    <div className="app-page text-sm">
       <AddCattleModal
         isOpen={Boolean(addingToPaddock)}
         onClose={() => setAddingToPaddock(null)}
@@ -93,109 +114,130 @@ export default function PaddocksPage() {
         lockedPaddockLabel={addingToPaddock?.name}
       />
 
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl text-white">Potreros</h1>
-          <p className="mt-0.5 text-[11px] text-stone-500">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <h1 className="font-display text-2xl font-bold text-white">Potreros</h1>
+          <p className="mt-1 text-xs text-sand-500">
             El estado de cada potrero según la última medición de pasto por satélite.
           </p>
         </div>
         <Link
           to="/mapa"
-          className="flex items-center gap-1.5 rounded-lg border border-white/[.08] bg-[#161619] px-3.5 py-2 text-[11px] font-semibold text-stone-300 hover:bg-white/[.04]">
-          <LandPlot size={13} className="text-stone-400" /> Ver en el mapa
+          className="app-button-secondary self-start px-4 text-xs sm:self-auto">
+          <LandPlot size={15} aria-hidden="true" /> Ver en el mapa
         </Link>
       </header>
 
-      {(paddocksError || actionError) && (
-        <p className="mt-4 rounded-lg bg-red-500/10 px-3.5 py-2.5 text-[11px] font-semibold text-red-400">
-          {paddocksError || actionError}
-        </p>
+      {(sourceErrorMessage || actionError) && (
+        <div className="app-error mt-5" role="alert">
+          <strong className="block text-sm">
+            {actionError ? 'No se pudo agregar el ganado' : 'No se pudo cargar la lista completa'}
+          </strong>
+          <span className="mt-0.5 block text-xs">{actionError || sourceErrorMessage}</span>
+        </div>
+      )}
+      {analyticsErrorMessage && (
+        <div className="app-error mt-3 text-xs" role="status">
+          {analyticsErrorMessage} Los potreros siguen disponibles, pero algunos estados pueden faltar.
+        </div>
       )}
 
       {loading ? (
-        <div className="mt-10 flex items-center justify-center gap-2 text-[12px] text-stone-500">
-          <LoaderCircle size={16} className="animate-spin" /> Cargando potreros...
-        </div>
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Cargando potreros">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div key={index} className="app-panel overflow-hidden">
+              <div className="app-skeleton h-28" />
+              <div className="space-y-3 p-5">
+                <div className="app-skeleton h-4 w-2/3 rounded" />
+                <div className="app-skeleton h-3 w-1/2 rounded" />
+                <div className="app-skeleton mt-5 h-10 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : sourceErrorMessage && paddocksWithCounts.length === 0 ? (
+        <section className="app-panel app-empty mt-6" aria-label="Error al cargar potreros">
+          <div>
+            <AlertTriangle size={24} className="mx-auto text-danger-400" aria-hidden="true" />
+            <p className="mt-3 text-sm text-sand-300">No pudimos mostrar los potreros en este momento.</p>
+            <p className="mt-1 text-xs text-sand-500">Volvé a intentar cuando recuperes la conexión.</p>
+          </div>
+        </section>
       ) : paddocksWithCounts.length === 0 ? (
-        <p className="mt-10 text-center text-[12px] text-stone-500">
-          Todavía no creaste ningún potrero. Andá al mapa para dibujar el primero.
-        </p>
+        <section className="app-panel app-empty mt-6">
+          <div>
+            <LandPlot size={26} className="mx-auto text-sand-500" aria-hidden="true" />
+            <h2 className="mt-3 text-base font-bold text-white">Creá tu primer potrero</h2>
+            <p className="mt-1 text-xs text-sand-500">Dibujá sus límites en el mapa para empezar a registrar ganado y mediciones.</p>
+            <Link to="/mapa" className="app-button-primary mt-5 px-4 text-xs">
+              Abrir el mapa <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
       ) : (
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {paddocksWithCounts.map((paddock) => {
-            const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+        <section className="mt-6" aria-labelledby="paddocks-list-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="paddocks-list-heading" className="text-sm font-bold text-sand-100">
+              {paddocksWithCounts.length} {paddocksWithCounts.length === 1 ? 'potrero' : 'potreros'}
+            </h2>
+            {analyticsLoading && <span className="text-xs text-sand-500">Actualizando estados...</span>}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {paddocksWithCounts.map((paddock) => {
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
 
-            return (
-              <article
-                key={paddock.id}
-                onClick={() => navigate(`/potreros/${paddock.id}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') navigate(`/potreros/${paddock.id}`);
-                }}
-                className="group cursor-pointer overflow-hidden rounded-xl border border-white/[.05] bg-[#161619] text-[11px] text-stone-400 flex flex-col justify-between hover:border-white/[.15] transition-colors">
-                <div>
-                  <div className="relative">
-                    <PaddockShapeIcon paddock={paddock} color={details.statusColor} />
-                    <span
-                      className="absolute right-2 top-2 rounded-full px-2 py-0.5 font-semibold text-[10px] shadow"
-                      style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
-                      {analyticsLoading ? '...' : details.status}
-                    </span>
-                  </div>
-
-                  <div className="px-5 pt-3.5">
-                    <h3 className="text-[13px] font-bold text-white leading-tight">
-                      {paddock.name}
-                    </h3>
-                    <p className="mt-0.5 flex items-center gap-1 text-stone-500 font-medium">
-                      <LandPlot size={11} /> {paddock.hectares.toFixed(0)} ha
-                    </p>
-
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-stone-300">
-                        <Beef size={13} className="text-stone-500" />
-                        <strong className="text-stone-200">{paddock.animals}</strong> cabezas
+              return (
+                <article key={paddock.id} className="app-panel group overflow-hidden transition-colors hover:border-sand-100/25">
+                  <Link to={`/potreros/${paddock.id}`} className="block">
+                    <div className="relative">
+                      <PaddockShapeIcon paddock={paddock} color={details.statusColor} />
+                      <span
+                        className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold"
+                        style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
+                        {analyticsLoading ? 'Actualizando' : details.status}
                       </span>
                     </div>
-                  </div>
-                </div>
 
-                <div className="px-5 pb-5 pt-4">
-                  {details.alert && (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-red-500/10 p-2 text-red-400 text-[10px] font-medium leading-normal">
-                      <AlertTriangle size={13} className="shrink-0" />
-                      <span>{details.alert}</span>
+                    <div className="p-5 pb-3">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-bold text-white">{paddock.name}</h3>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-sand-500">
+                            <span className="flex items-center gap-1.5">
+                              <LandPlot size={13} aria-hidden="true" /> {Number(paddock.hectares).toFixed(0)} ha
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Beef size={13} aria-hidden="true" /> {paddock.animals} cabezas
+                            </span>
+                          </p>
+                        </div>
+                        <ArrowRight size={17} className="mt-1 shrink-0 text-sand-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      </div>
+
+                      <div className={`mt-4 flex min-h-11 items-start gap-2 rounded-lg px-3 py-2.5 text-xs leading-relaxed ${details.alert ? 'bg-danger-400/10 text-danger-400' : details.recommendation ? 'bg-warning-400/10 text-warning-400' : 'bg-sand-100/[.04] text-sand-300'}`}>
+                        {details.alert || details.recommendation ? (
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <CheckCircle2 size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        )}
+                        <span className="line-clamp-2">{details.alert || details.recommendation || details.ok || 'Sin mediciones disponibles'}</span>
+                      </div>
                     </div>
-                  )}
-                  {details.recommendation && (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 p-2 text-amber-400 text-[10px] font-medium leading-normal">
-                      <AlertTriangle size={13} className="shrink-0" />
-                      <span>{details.recommendation}</span>
-                    </div>
-                  )}
-                  {details.ok && (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-white/[.03] p-2 text-stone-300 text-[10px] font-medium leading-normal">
-                      <CheckCircle2 size={13} className="shrink-0 text-stone-500" />
-                      <span>{details.ok}</span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAddingToPaddock(paddock);
-                    }}
-                    disabled={mutating}
-                    className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50">
-                    <Plus size={12} /> Agregar ganado
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+                  </Link>
+
+                  <div className="px-5 pb-5">
+                    <button
+                      type="button"
+                      onClick={() => setAddingToPaddock(paddock)}
+                      disabled={mutating}
+                      className="app-button-secondary w-full text-xs disabled:opacity-50">
+                      <Plus size={14} aria-hidden="true" /> Agregar ganado
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       )}
     </div>

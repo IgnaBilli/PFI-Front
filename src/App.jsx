@@ -1,18 +1,32 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import AuthPage from './pages/AuthPage.jsx';
-import MapPage from './pages/MapPage.jsx';
 import DashboardLayout from './components/DashboardLayout.jsx';
-import SummaryPage from './pages/SummaryPage.jsx';
-import CattlePage from './pages/CattlePage.jsx';
-import PaddocksPage from './pages/PaddocksPage.jsx';
-import PaddockDetailPage from './pages/PaddockDetailPage.jsx';
-import TrasladoPage from './pages/TrasladoPage.jsx';
-import OnboardingEstanciaPage from './pages/OnboardingEstanciaPage.jsx';
 import { RequireAuth, RequireEstancia, RequireNoEstancia } from './components/RouteGuards.jsx';
+
+const AuthPage = lazy(() => import('./pages/AuthPage.jsx'));
+const MapPage = lazy(() => import('./pages/MapPage.jsx'));
+const SummaryPage = lazy(() => import('./pages/SummaryPage.jsx'));
+const CattlePage = lazy(() => import('./pages/CattlePage.jsx'));
+const PaddocksPage = lazy(() => import('./pages/PaddocksPage.jsx'));
+const PaddockDetailPage = lazy(() => import('./pages/PaddockDetailPage.jsx'));
+const TrasladoPage = lazy(() => import('./pages/TrasladoPage.jsx'));
+const OnboardingEstanciaPage = lazy(() => import('./pages/OnboardingEstanciaPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
+
+function RouteFallback() {
+  return (
+    <div className="app-page" role="status" aria-live="polite">
+      <div className="app-skeleton h-8 w-52 rounded-lg" aria-hidden="true" />
+      <div className="app-skeleton mt-6 h-56 rounded-[var(--radius-lg)]" aria-hidden="true" />
+      <span className="sr-only">Cargando pantalla...</span>
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/registro" element={<AuthPage mode="register" />} />
       <Route
@@ -33,9 +47,11 @@ export default function App() {
           <Route path="/potreros/:paddockId" element={<PaddockDetailPage />} />
           <Route path="/ganado" element={<CattlePage />} />
           <Route path="/traslado" element={<TrasladoPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

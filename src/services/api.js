@@ -28,6 +28,9 @@ export function getStoredUser() {
 }
 
 export function setSession(token, user) {
+  if (typeof token !== 'string' || token.trim() === '') {
+    throw new TypeError('No se puede iniciar una sesión sin un token válido.')
+  }
   sessionStorage.setItem(TOKEN_KEY, token)
   sessionStorage.setItem(USER_KEY, JSON.stringify(user ?? null))
 }
