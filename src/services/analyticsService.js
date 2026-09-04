@@ -103,3 +103,17 @@ export async function fetchTrasladoAnaliticas(estanciaId, { desde, hasta } = {})
 export async function createNutritionEstimate(paddockId) {
   return api.post(`/potrero/${paddockId}/estimacion-nutricional`)
 }
+
+export async function fetchLatestStock(paddockId) {
+  return safeGet(`/potrero/${paddockId}/estimacion-stock`)
+}
+
+export async function fetchStockHistory(paddockId) {
+  const data = await safeGet(`/potrero/${paddockId}/estimacion-stock/historico`)
+  const list = Array.isArray(data?.estimaciones) ? data.estimaciones : []
+  return [...list].sort((a, b) => timeOf(a) - timeOf(b))
+}
+
+export async function createStockEstimate(paddockId, fecha) {
+  return api.post(`/potrero/${paddockId}/estimacion-stock`, fecha ? { fecha } : {})
+}

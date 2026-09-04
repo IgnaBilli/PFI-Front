@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   fetchActiveRecommendation,
-  fetchLatestForage,
+  fetchLatestStock,
   fetchLatestNutrition,
 } from '../services/analyticsService.js';
 
@@ -24,11 +24,11 @@ export default function usePaddockAnalytics(paddocks) {
     Promise.allSettled(
       paddocks.map(async (paddock) => {
         const results = await Promise.allSettled([
-          fetchLatestForage(paddock.id),
+          fetchLatestStock(paddock.id),
           fetchLatestNutrition(paddock.id),
           fetchActiveRecommendation(paddock.id),
         ]);
-        const keys = ['forage', 'nutrition', 'recommendation'];
+        const keys = ['stock', 'nutrition', 'recommendation'];
         const data = {};
         const errors = {};
         results.forEach((result, index) => {
@@ -109,15 +109,23 @@ function computeLoadPercent(nutrition, forage, hectares) {
 }
 
 export function buildPaddockStatus(entry, hectares) {
+  const stock = entry?.stock ?? null;
   const forage = entry?.forage ?? null;
   const nutrition = entry?.nutrition ?? null;
   const recommendation = entry?.recommendation ?? null;
   const priority = recommendation?.prioridad ?? recommendation?.tipo ?? null;
-  const grassValue = forage?.kg_materia_seca_ha;
+  const grassValue = stock?.stock_final_central_kg_ms_ha ?? forage?.kg_materia_seca_ha;
   const grass =
     grassValue !== undefined && grassValue !== null ? `${grassValue} kg MS/ha` : 'Sin datos';
 
-  const loadPercent = computeLoadPercent(nutrition, forage, hectares);
+  const usableGrowth = Number(stock?.crecimiento_utilizable_kg_ms_ha_dia);
+  const dailyConsumption = Number(stock?.consumo_diario_total_kg_ms);
+  const ha = Number(hectares);
+  const growthTotal = usableGrowth * ha;
+  const stockLoad = [usableGrowth, dailyConsumption, ha].every(Number.isFinite) && growthTotal > 0
+    ? dailyConsumption / growthTotal * 100
+    : null;
+  const loadPercent = stockLoad ?? computeLoadPercent(nutrition, forage, hectares);
   const load = loadPercent !== null ? `${Math.round(loadPercent)}%` : 'Sin datos';
   // Ancho seguro para barras de progreso: acotado a [0, 100] aunque el
   // potrero esté sobrecargado (el número real, sin recortar, va en `load`).
@@ -128,18 +136,22 @@ export function buildPaddockStatus(entry, hectares) {
     : null;
 
   let variant = 'empty';
-  if (priority === 'REDUCIR_CARGA') variant = 'alert';
+  if (stock && loadPercent !== null && loadPercent > 100) variant = 'alert';
+  else if (stock) variant = 'ok';
+  else if (priority === 'REDUCIR_CARGA') variant = 'alert';
   else if (recommendation) variant = 'info';
-  else if (forage) variant = 'ok';
+  else if (stock || forage) variant = 'ok';
 
   const base = STATUS_STYLES[variant];
   const result = { ...base, grass, load, loadBarWidth };
 
   if (variant === 'alert')
-    result.alert = recommendationText || 'Se recomienda reducir la carga animal.';
+    result.alert = stock
+      ? 'El consumo diario supera el crecimiento utilizable estimado; el Stock disminuiría si se mantiene esta carga.'
+      : recommendationText || 'Se recomienda reducir la carga animal.';
   else if (variant === 'info')
     result.recommendation = recommendationText || 'Tiene una recomendación disponible.';
-  else if (variant === 'ok') result.ok = 'Estimación forrajera disponible';
+  else if (variant === 'ok') result.ok = stock ? 'Estimación de Stock disponible' : 'Estimación forrajera disponible';
 
   return result;
 }

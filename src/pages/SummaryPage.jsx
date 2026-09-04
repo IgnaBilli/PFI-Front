@@ -42,13 +42,12 @@ function LoadingBlock({ className = 'h-24' }) {
   return <div className={`app-skeleton rounded-xl ${className}`} aria-hidden="true" />;
 }
 
-// Lista de barras horizontales: una por potrero, magnitud = % de forraje de
-// la estancia que aporta (secuencial, un solo hue, sin ranking por color).
+// Lista de barras: proporción del Stock utilizable total de la estancia.
 function ForageDistributionList({ rows }) {
   if (rows.length === 0) {
     return (
       <p className="mt-4 text-xs text-sand-500">
-        Todavía no hay mediciones de disponibilidad forrajera en ningún potrero.
+        Todavía no hay estimaciones de Stock en ningún potrero.
       </p>
     );
   }
@@ -60,7 +59,7 @@ function ForageDistributionList({ rows }) {
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="truncate font-semibold text-sand-300">{row.nombre}</span>
             <span className="shrink-0 text-sand-500">
-              {Number(row.porcentaje).toFixed(0)}% · {Number(row.kg_materia_seca_total).toFixed(0)}{' '}
+              {Number(row.porcentaje).toFixed(0)}% · {Number(row.stock_total_kg_ms).toFixed(0)}{' '}
               kg MS
             </span>
           </div>
@@ -125,15 +124,15 @@ export default function SummaryPage() {
     };
   });
 
-  const forageGrowthPoints = (analiticas?.crecimientoForraje7dias ?? [])
-    .map((d) => ({ t: new Date(d.fecha).getTime(), value: Number(d.kg_materia_seca_ha_promedio) }))
+  const forageGrowthPoints = (analiticas?.evolucionStock7dias ?? [])
+    .map((d) => ({ t: new Date(d.fecha).getTime(), value: Number(d.stock_kg_ms_ha_promedio) }))
     .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.value))
     .sort((a, b) => a.t - b.t);
 
   const rutasFrecuentes = trasladoAnaliticas?.rutasMasFrecuentes ?? [];
   const sourceTimestamps = paddocksWithCounts.flatMap((paddock) => {
     const entry = dataById[paddock.id];
-    return [getTimestamp(entry?.forage), getTimestamp(entry?.nutrition), getTimestamp(entry?.recommendation)];
+    return [getTimestamp(entry?.stock), getTimestamp(entry?.nutrition), getTimestamp(entry?.recommendation)];
   });
   const latestTimestamp = [...sourceTimestamps, ...forageGrowthPoints.map((point) => point.t)]
     .filter(Number.isFinite)
@@ -323,7 +322,7 @@ export default function SummaryPage() {
       <section className="mt-8" aria-labelledby="analytics-heading">
         <h2 id="analytics-heading" className="text-base font-bold text-white">Analítica de la estancia</h2>
         <p className="mt-1 max-w-2xl text-xs text-sand-500">
-          Agregado de todos los potreros: carga animal, forraje y movimientos de ganado.
+          Agregado de todos los potreros: carga animal, Stock utilizable y movimientos de ganado.
         </p>
         {analyticsError && (
           <div className="app-error mt-3 text-xs" role="status">
@@ -353,14 +352,14 @@ export default function SummaryPage() {
           <article className="app-panel p-5">
             <div className="flex items-center gap-2">
               <Sprout size={16} className="text-sand-500" aria-hidden="true" />
-              <h3 className="text-sm font-bold text-sand-100">Forraje por potrero</h3>
+              <h3 className="text-sm font-bold text-sand-100">Stock utilizable por potrero</h3>
             </div>
             {estanciaAnaliticasLoading ? (
               <LoadingBlock className="mt-4 h-64" />
             ) : estanciaDataError ? (
-              <p className="app-empty min-h-64 text-xs">No se pudo cargar la distribución de forraje.</p>
+              <p className="app-empty min-h-64 text-xs">No se pudo cargar la distribución de Stock.</p>
             ) : (
-              <ForageDistributionList rows={analiticas?.distribucionForraje ?? []} />
+              <ForageDistributionList rows={analiticas?.distribucionStock ?? []} />
             )}
           </article>
 
@@ -368,7 +367,7 @@ export default function SummaryPage() {
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Sprout size={16} className="text-brand-400" aria-hidden="true" />
-                <h3 className="text-sm font-bold text-sand-100">Crecimiento de forraje · 7 días</h3>
+                <h3 className="text-sm font-bold text-sand-100">Evolución del Stock · 7 días</h3>
               </div>
               {forageGrowthPoints.length > 0 && (
                 <span className="text-xs text-sand-500">
@@ -379,7 +378,7 @@ export default function SummaryPage() {
             {estanciaAnaliticasLoading ? (
               <LoadingBlock className="mt-4 h-52" />
             ) : estanciaDataError ? (
-              <p className="app-empty min-h-52 text-xs">No se pudo cargar el crecimiento de los últimos 7 días.</p>
+              <p className="app-empty min-h-52 text-xs">No se pudo cargar la evolución del Stock.</p>
             ) : (
               <TrendLineChart
                 points={forageGrowthPoints}
@@ -387,7 +386,7 @@ export default function SummaryPage() {
                 formatX={formatShortDate}
                 formatTooltip={(point) => `${formatShortDate(point.t)} · ${point.value.toFixed(0)} kg MS/ha`}
                 emptyMessage="Todavía no hay suficientes mediciones en los últimos 7 días."
-                ariaLabel="Crecimiento promedio de forraje durante los últimos 7 días"
+                ariaLabel="Stock utilizable promedio durante los últimos 7 días"
               />
             )}
           </article>

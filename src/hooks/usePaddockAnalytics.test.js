@@ -2,14 +2,14 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchActiveRecommendation,
-  fetchLatestForage,
+  fetchLatestStock,
   fetchLatestNutrition,
 } from '../services/analyticsService.js';
 import usePaddockAnalytics, { buildPaddockStatus } from './usePaddockAnalytics.js';
 
 vi.mock('../services/analyticsService.js', () => ({
   fetchActiveRecommendation: vi.fn(),
-  fetchLatestForage: vi.fn(),
+  fetchLatestStock: vi.fn(),
   fetchLatestNutrition: vi.fn(),
 }));
 
@@ -20,16 +20,16 @@ describe('usePaddockAnalytics', () => {
 
   it('retains successful card data and exposes errors by paddock and source', async () => {
     const failure = new Error('nutrition failed');
-    const forage = { kg_materia_seca_ha: 100 };
+    const stock = { stock_final_central_kg_ms_ha: 100 };
     const recommendation = { prioridad: 'MONITOREAR' };
-    fetchLatestForage.mockResolvedValue(forage);
+    fetchLatestStock.mockResolvedValue(stock);
     fetchLatestNutrition.mockRejectedValue(failure);
     fetchActiveRecommendation.mockResolvedValue(recommendation);
 
     const { result } = renderHook(() => usePaddockAnalytics([{ id: 9 }]));
 
     await waitFor(() => expect(result.current.dataById[9]).toBeDefined());
-    expect(result.current.dataById[9]).toEqual({ forage, nutrition: null, recommendation });
+    expect(result.current.dataById[9]).toEqual({ stock, nutrition: null, recommendation });
     expect(result.current.errorsById).toEqual({ 9: { nutrition: failure } });
     expect(result.current.error).toBe(failure);
     expect(result.current.loading).toBe(false);
@@ -39,6 +39,18 @@ describe('usePaddockAnalytics', () => {
 // carga = (consumo diario por animal * cantidad de animales) /
 //         (forraje estimado por ha * hectáreas)
 describe('buildPaddockStatus — carga animal', () => {
+  it('compara el consumo total diario con el crecimiento utilizable del potrero', () => {
+    const result = buildPaddockStatus({
+      stock: {
+        stock_final_central_kg_ms_ha: 674,
+        crecimiento_utilizable_kg_ms_ha_dia: 2,
+        consumo_diario_total_kg_ms: 300,
+      },
+    }, 50);
+    expect(result.grass).toBe('674 kg MS/ha');
+    expect(result.load).toBe('300%');
+    expect(result.alert).toContain('consumo diario supera el crecimiento utilizable');
+  });
   it('labels forage as a stock per hectare without claiming a daily rate or forage quality', () => {
     const result = buildPaddockStatus({ forage: { kg_materia_seca_ha: 120 } }, 5);
 
