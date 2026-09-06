@@ -236,7 +236,6 @@ export default function PaddockDetailPage() {
   const [forageGenLoading, setForageGenLoading] = useState(false);
   const [forageGenError, setForageGenError] = useState('');
   const [forageOverride, setForageOverride] = useState(null);
-  const [stockDate, setStockDate] = useState(localDateValue);
   const [dmiLoading, setDmiLoading] = useState(false);
   const [dmiError, setDmiError] = useState('');
   const [dmiOverride, setDmiOverride] = useState(null);
@@ -259,7 +258,7 @@ export default function PaddockDetailPage() {
     setForageGenLoading(true);
     setForageGenError('');
     try {
-      const result = await createStockEstimate(paddock.id, stockDate);
+      const result = await createStockEstimate(paddock.id, localDateValue());
       setForageOverride(result);
       setForageHistory((current) => {
         const resultKey = forageEstimateKey(result);
@@ -272,6 +271,24 @@ export default function PaddockDetailPage() {
       setForageGenLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!paddock?.id) return;
+    let cancelled = false;
+    createStockEstimate(paddock.id, undefined, true, () => {
+      if (!cancelled) { forageRequestRef.current = true; setForageGenLoading(true); }
+    }).then(result => {
+      if (!cancelled && result) {
+        setForageOverride(result);
+        setForageHistory(current => [...current.filter(item => forageEstimateKey(item) !== forageEstimateKey(result)), result]);
+      }
+    }).catch(error => {
+      if (!cancelled) setForageGenError(error.message);
+    }).finally(() => {
+      if (!cancelled) { forageRequestRef.current = false; setForageGenLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [paddock?.id]);
 
   async function handleRecalculateDmi() {
     if (!paddock || dmiLoading) return;
@@ -387,8 +404,15 @@ export default function PaddockDetailPage() {
   const forageValue = Number(latestForage?.stock_final_central_kg_ms_ha);
   const demandValue = Number(nutrition?.kg_materia_seca_dia);
   const stockDetail = latestForage?.detalle_json ?? null;
+  const stockWindowDays = stockDetail?.potrero?.dias_calculo ?? null;
   const grossGrowth = Number(latestForage?.crecimiento_bruto_kg_ms_ha_dia);
   const usableGrowth = Number(latestForage?.crecimiento_utilizable_kg_ms_ha_dia);
+  const estimatedHectares = Number(latestForage?.superficie_ha);
+  const totalDailyGrowth = (value) => (
+    value != null && Number.isFinite(Number(value)) && Number.isFinite(estimatedHectares) && estimatedHectares > 0
+      ? `${(Number(value) * estimatedHectares).toLocaleString('es-AR', { maximumFractionDigits: 2 })} kg MS/día`
+      : 'Sin datos'
+  );
   const dailyConsumptionPerHa = Number(latestForage?.consumo_diario_kg_ms_ha);
   const growthCoverage = usableGrowth > 0 && dailyConsumptionPerHa > 0
     ? usableGrowth / dailyConsumptionPerHa * 100
@@ -498,20 +522,10 @@ export default function PaddockDetailPage() {
             <p className="mt-1 text-xs text-sand-500">Actualizá estimaciones, incorporá ganado o prepará un traslado.</p>
           </div>
           <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
-            <label className="flex items-center gap-2 text-xs text-sand-300">
-              Fecha
-              <input
-                type="date"
-                value={stockDate}
-                max={localDateValue()}
-                onChange={(event) => setStockDate(event.target.value)}
-                disabled={forageGenLoading}
-                className="rounded-md border border-sand-100/15 bg-forest-950 px-3 py-2 text-sand-100"
-              />
-            </label>
-            <button type="button" onClick={handleGenerateForage} disabled={forageGenLoading || !nutrition || !stockDate} className="app-button-secondary text-xs">
+            <p className="flex items-center text-xs text-sand-300">Stock para hoy · {formatShortDate(localDateValue())}</p>
+            <button type="button" onClick={handleGenerateForage} disabled={forageGenLoading} className="app-button-secondary text-xs">
               {forageGenLoading ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Satellite size={16} aria-hidden="true" />}
-              {forageGenLoading ? 'Calculando Stock…' : latestForage ? 'Actualizar Stock' : 'Calcular Stock'}
+              {forageGenLoading ? (latestForage ? 'Actualizando Stock…' : 'Calculando stock inicial…') : latestForage ? 'Actualizar Stock' : 'Calcular Stock'}
             </button>
             <button type="button" onClick={handleRecalculateDmi} disabled={dmiLoading || herd.length === 0} className="app-button-secondary text-xs">
               {dmiLoading ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Calculator size={16} aria-hidden="true" />}
@@ -524,13 +538,13 @@ export default function PaddockDetailPage() {
           </div>
         </div>
         {forageGenLoading && <p className="mt-3 text-xs text-sand-500">Se consultan escenas actuales e históricas. El proceso puede demorar varios minutos.</p>}
-        {!nutrition && <p className="mt-3 text-xs text-warning-400">Calculá primero la demanda nutricional DMI para habilitar Stock.</p>}
+        {!nutrition && <p className="mt-3 text-xs text-warning-400">Sin animales registrados se calcula con consumo cero. Si hay ganado o movimientos históricos, calculá la demanda DMI para estimar su consumo.</p>}
         <InlineError>{forageGenError || dmiError}</InlineError>
       </section>
 
       <section className="mt-4 grid gap-4 lg:grid-cols-2" aria-label="Stock utilizable y demanda nutricional">
         <article className="app-panel p-5 sm:p-6">
-          <SectionHeading title="Stock utilizable" description="Materia seca utilizable estimada luego de sumar crecimiento y descontar el consumo de 30 días." />
+          <SectionHeading title="Stock utilizable" description={`Materia seca utilizable estimada luego de sumar crecimiento y descontar consumo. ${stockWindowDays != null ? `Período calculado: ${stockWindowDays} días.` : 'La ventana inicial se determina según la estación y la cobertura del potrero.'}`} />
           {analyticsLoading && !forageOverride ? (
             <div className="mt-6 space-y-3">
               <div className="app-skeleton h-10 w-48 rounded" />
@@ -544,8 +558,17 @@ export default function PaddockDetailPage() {
               </p>
               <p className="mt-2 text-xs text-sand-500">Fecha objetivo {latestForage.fecha_objetivo ? formatShortDate(latestForage.fecha_objetivo) : 'sin fecha informada'} · rango {Number(latestForage.stock_final_min_kg_ms_ha).toFixed(0)}–{Number(latestForage.stock_final_max_kg_ms_ha).toFixed(0)} kg MS/ha</p>
               <p className="mt-3 rounded-md border border-warning-400/25 bg-warning-400/10 px-3 py-2 text-xs leading-relaxed text-warning-400">
-                Stock inicial preliminar no validado: es un proxy ajustado con DMP y no reemplaza un aforo.
+                {stockDetail?.stock_inicial_estimado?.metodo === 'suma_produccion_utilizable_bloques_5_dias'
+                  ? 'Estimación de producción acumulada menos consumo, sin sumar biomasa previa. No reemplaza un aforo.'
+                  : 'Stock inicial preliminar no validado: es un proxy ajustado con DMP y no reemplaza un aforo.'}
               </p>
+              {stockDetail?.seguimiento_diario && (
+                <p className="mt-3 text-xs leading-relaxed text-sand-400">
+                  Crecimiento actualizado hasta {formatShortDate(stockDetail.seguimiento_diario.crecimiento_actualizado_hasta)}.
+                  Próxima actualización: {formatShortDate(stockDetail.seguimiento_diario.proxima_actualizacion)}.
+                  {' '}{stockDetail.seguimiento_diario.advertencia}
+                </p>
+              )}
               <dl className="mt-6 grid gap-3 border-t border-sand-100/10 pt-4 sm:grid-cols-2">
                 <div>
                   <dt className="text-xs text-sand-500">Crecimiento bruto</dt>
@@ -556,11 +579,19 @@ export default function PaddockDetailPage() {
                   <dd className="mt-1 font-bold tabular-nums text-sand-100">{Number.isFinite(usableGrowth) ? `${usableGrowth.toFixed(2)} kg MS/ha/día` : 'Sin datos'}</dd>
                 </div>
                 <div>
+                  <dt className="text-xs text-sand-500">Crecimiento bruto de todo el potrero</dt>
+                  <dd className="mt-1 font-bold tabular-nums text-sand-100">{totalDailyGrowth(latestForage.crecimiento_bruto_kg_ms_ha_dia)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-sand-500">Crecimiento utilizable de todo el potrero</dt>
+                  <dd className="mt-1 font-bold tabular-nums text-sand-100">{totalDailyGrowth(latestForage.crecimiento_utilizable_kg_ms_ha_dia)}</dd>
+                </div>
+                <div>
                   <dt className="text-xs text-sand-500">Crecimiento que cubre consumo</dt>
                   <dd className="mt-1 font-bold tabular-nums text-sand-100">{growthCoverage != null ? `${growthCoverage.toFixed(0)}%` : 'Sin datos'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-sand-500">Cambio neto en 30 días</dt>
+                  <dt className="text-xs text-sand-500">Cambio neto en {stockWindowDays} días</dt>
                   <dd className={`mt-1 font-bold tabular-nums ${netStockChange >= 0 ? 'text-brand-400' : 'text-danger-400'}`}>{Number.isFinite(netStockChange) ? `${netStockChange >= 0 ? '+' : ''}${netStockChange.toFixed(1)} kg MS/ha` : 'Sin datos'}</dd>
                 </div>
                 <div>
@@ -569,10 +600,10 @@ export default function PaddockDetailPage() {
                 </div>
                 <div>
                   <dt className="text-xs text-sand-500">Consumo descontado</dt>
-                  <dd className="mt-1 font-bold tabular-nums text-sand-100">{latestForage.consumo_acumulado_kg_ms_ha != null ? `${Number(latestForage.consumo_acumulado_kg_ms_ha).toFixed(1)} kg MS/ha en 30 días` : 'Sin datos'}</dd>
+                  <dd className="mt-1 font-bold tabular-nums text-sand-100">{latestForage.consumo_acumulado_kg_ms_ha != null ? `${Number(latestForage.consumo_acumulado_kg_ms_ha).toFixed(1)} kg MS/ha en ${stockWindowDays} días` : 'Sin datos'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-sand-500">Stock inicial usado</dt>
+                  <dt className="text-xs text-sand-500">{stockDetail?.stock_inicial_estimado?.metodo === 'suma_produccion_utilizable_bloques_5_dias' ? 'Producción acumulada antes del consumo' : 'Stock inicial usado'}</dt>
                   <dd className="mt-1 font-bold tabular-nums text-sand-100">{latestForage.stock_inicial_central_kg_ms_ha != null ? `${Number(latestForage.stock_inicial_central_kg_ms_ha).toFixed(1)} kg MS/ha` : 'Sin datos'}</dd>
                 </div>
                 <div>
@@ -590,7 +621,7 @@ export default function PaddockDetailPage() {
             <div className="app-empty mt-4 min-h-40 rounded-lg border border-dashed border-sand-100/15">
               <div>
                 <Satellite size={26} className="mx-auto text-sand-500" aria-hidden="true" />
-                <p className="mt-3">Todavía no hay una estimación de Stock utilizable.</p>
+                <p className="mt-3" role="status">{forageGenLoading ? 'Calculando la ventana inicial, el crecimiento y el stock. Los resultados aparecerán aquí al finalizar.' : 'Todavía no hay una estimación de Stock utilizable.'}</p>
               </div>
             </div>
           )}
@@ -752,7 +783,7 @@ export default function PaddockDetailPage() {
       </section>
 
       <section className="app-panel mt-4 p-5 sm:p-6" aria-labelledby="history-title">
-        <SectionHeading id="history-title" title="Historial de Stock" description="Evolución del Stock utilizable central por hectárea y su balance de 30 días." />
+        <SectionHeading id="history-title" title="Historial de Stock" description="Evolución del Stock utilizable central por hectárea. Cada estimación conserva su ventana de cálculo." />
         <div className="mt-5">
           {historyLoading ? (
             <div className="app-skeleton h-52 rounded-lg" aria-label="Cargando historial de Stock" />

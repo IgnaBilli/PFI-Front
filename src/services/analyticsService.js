@@ -114,6 +114,21 @@ export async function fetchStockHistory(paddockId) {
   return [...list].sort((a, b) => timeOf(a) - timeOf(b))
 }
 
-export async function createStockEstimate(paddockId, fecha) {
-  return api.post(`/potrero/${paddockId}/estimacion-stock`, fecha ? { fecha } : {})
+export async function createStockEstimate(paddockId, fecha, resumeOnly = false, onRunning = () => {}) {
+  let job = resumeOnly
+    ? await api.get(`/potrero/${paddockId}/estimacion-stock/tarea`)
+    : await api.post(`/potrero/${paddockId}/estimacion-stock`, fecha ? { fecha } : {})
+  if (resumeOnly && job.estado === 'SIN_TAREA') return null
+  if (resumeOnly && job.estado === 'ERROR') throw new Error(job.error || 'No se pudo inicializar Stock. Podés reintentar el cálculo.')
+  if (resumeOnly && job.estado === 'COMPLETADO') return job.resultado
+  if (job.estado === 'EJECUTANDO') onRunning()
+  if (!job.estado || !job.id) return job
+  const jobId = job.id
+  while (job.estado === 'EJECUTANDO') {
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    job = await api.get(`/potrero/${paddockId}/estimacion-stock/tarea`)
+    if (job.id !== jobId) throw new Error('La tarea ya no está disponible. Verificá el último Stock guardado; el backend pudo reiniciarse.')
+  }
+  if (job.estado === 'ERROR') throw new Error(job.error || 'No se pudo calcular Stock.')
+  return job.resultado
 }

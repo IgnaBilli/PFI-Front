@@ -46,7 +46,7 @@ export default function AuthPage({ mode }) {
           style={{ backgroundImage: `url(${bgImage})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-forest-950 via-forest-950/40 to-forest-900/20" />
-        <Logo size={150} className="relative" />
+        {isRegister ? <Logo size={150} className="relative" /> : <div aria-hidden="true" />}
         <div className="relative max-w-xl animate-rise">
           <h1 className="max-w-lg text-5xl font-extrabold leading-[1.06] tracking-[-.035em]">Cada límite cuenta una historia.</h1>
           <p className="mt-5 max-w-md text-base leading-7 text-sand-200">
@@ -58,7 +58,7 @@ export default function AuthPage({ mode }) {
 
       <section className="flex min-h-screen items-center justify-center border-l border-sand-100/10 bg-forest-950 px-5 py-10 sm:px-12" aria-labelledby="auth-title">
         <div className="w-full max-w-sm animate-rise">
-          <Logo size={132} className="mb-10 lg:hidden" />
+          {isRegister && <Logo size={132} className="mb-10 lg:hidden" />}
           <h2 id="auth-title" className="text-3xl font-extrabold tracking-[-.025em] text-sand-100 sm:text-4xl">
             {isRegister ? 'Empezá a mapear.' : 'Ingresá a tu campo.'}
           </h2>

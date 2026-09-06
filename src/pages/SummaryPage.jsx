@@ -125,7 +125,7 @@ export default function SummaryPage() {
   });
 
   const forageGrowthPoints = (analiticas?.evolucionStock7dias ?? [])
-    .map((d) => ({ t: new Date(d.fecha).getTime(), value: Number(d.stock_kg_ms_ha_promedio) }))
+    .map((d) => ({ t: new Date(/^\d{4}-\d{2}-\d{2}$/.test(d.fecha) ? `${d.fecha}T12:00:00` : d.fecha).getTime(), value: Number(d.stock_kg_ms_ha_promedio) }))
     .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.value))
     .sort((a, b) => a.t - b.t);
 
