@@ -46,7 +46,7 @@ export default function AuthPage({ mode }) {
           style={{ backgroundImage: `url(${bgImage})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-forest-950 via-forest-950/40 to-forest-900/20" />
-        {isRegister ? <Logo size={150} className="relative" /> : <div aria-hidden="true" />}
+        <div aria-hidden="true" />
         <div className="relative max-w-xl animate-rise">
           <h1 className="max-w-lg text-5xl font-extrabold leading-[1.06] tracking-[-.035em]">Cada límite cuenta una historia.</h1>
           <p className="mt-5 max-w-md text-base leading-7 text-sand-200">
