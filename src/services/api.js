@@ -41,7 +41,7 @@ export function clearSession() {
 }
 
 function buildUrl(path, params) {
-  const url = new URL(API_BASE_URL.replace(/\/$/, '') + path)
+  const url = new URL(API_BASE_URL.replace(/\/$/, '') + path, window.location.origin)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
