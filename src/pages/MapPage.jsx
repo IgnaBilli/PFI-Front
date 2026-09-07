@@ -218,7 +218,7 @@ export default function MapPage() {
     setActionError('');
     const bounds = outlinePolygon.coordinates.map(({ latitude: lat, longitude: lng }) => [lat, lng]);
     mapRef.current?.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
-    setPanelOpen(false);
+    setPanelOpen(true);
   }
 
   function startEstanciaEdit() {
@@ -413,7 +413,7 @@ export default function MapPage() {
         : null;
 
   return (
-    <div className="relative flex h-full min-h-[560px] overflow-hidden bg-[var(--canvas-deep)] text-sm text-[var(--text-soft)]">
+    <div className="map-page relative flex h-full min-h-[360px] overflow-hidden bg-[var(--canvas-deep)] text-sm text-[var(--text-soft)]">
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteId)}
         title="Potrero con ganado asignado"
@@ -453,7 +453,7 @@ export default function MapPage() {
         aria-label={`Abrir panel de potreros, ${paddocksWithCounts.length} en total`}
         aria-controls="map-management-panel"
         aria-expanded={panelOpen}
-        className="app-button-secondary absolute right-3 top-16 z-[1000] px-3 shadow-xl lg:hidden">
+        className="app-button-secondary absolute right-3 top-16 z-[1001] px-3 shadow-xl md:top-3 lg:hidden">
         <LandPlot size={14} /> Potreros{' '}
         <span className="rounded bg-forest-700 px-1.5 py-0.5 text-xs text-[var(--text)]">
           {paddocksWithCounts.length}
@@ -462,7 +462,7 @@ export default function MapPage() {
       <aside
         id="map-management-panel"
         aria-label="Panel de gestión del mapa"
-        className={`absolute bottom-0 left-0 top-14 z-[1002] ${addingToPaddock ? 'w-[min(94vw,560px)] lg:w-[560px]' : 'w-[min(92vw,340px)] lg:w-[340px]'} overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14 text-[var(--text-soft)] shadow-2xl transition-transform lg:relative lg:inset-y-0 lg:z-auto lg:shrink-0 lg:translate-x-0 lg:p-5 lg:shadow-none ${panelOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}>
+        className={`absolute bottom-0 left-0 top-14 z-[1002] ${addingToPaddock ? 'w-[min(94vw,560px)] lg:w-[560px]' : 'w-[min(92vw,340px)] lg:w-[340px]'} overflow-y-auto overscroll-contain border-r border-[var(--border)] bg-[var(--surface)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-14 text-[var(--text-soft)] shadow-2xl transition-transform md:top-0 lg:relative lg:inset-y-0 lg:z-auto lg:shrink-0 lg:translate-x-0 lg:p-5 lg:shadow-none ${panelOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}>
         <button
           type="button"
           onClick={() => setPanelOpen(false)}
@@ -605,17 +605,25 @@ export default function MapPage() {
               ? 'Modificá el trazado del límite general de la estancia.'
               : 'Información general de tu estancia.'
             : editMode === 'potrero' && !editingId && potreroMode === 'home'
-              ? 'Elegí un potrero de la lista, o entrá a tu estancia para dibujar uno nuevo.'
+              ? 'Dibujá un potrero, editá el límite de la estancia o elegí un potrero de la lista.'
               : 'Iniciá el trazado y marcá los vértices sobre el mapa de forma simple.'}
         </p>
 
         {editMode === 'potrero' && !editingId && potreroMode === 'home' && outlinePolygon && (
-          <button
-            type="button"
-            onClick={viewEstancia}
-            className="app-button-secondary mt-4 w-full text-xs">
-            <LandPlot size={13} /> Ver estancia
-          </button>
+          <div className="mt-4 space-y-2">
+            <button type="button" onClick={openDrawPaddock} disabled={paddockDataIncomplete} className="app-button-primary w-full">
+              <Plus size={14} /> Dibujar potrero
+            </button>
+            <button type="button" onClick={startEstanciaEdit} disabled={!estanciaId} className="app-button-secondary w-full">
+              <Pencil size={14} /> Editar límite
+            </button>
+            <button
+              type="button"
+              onClick={viewEstancia}
+              className="app-button-secondary w-full text-xs">
+              <LandPlot size={13} /> Ver estancia
+            </button>
+          </div>
         )}
 
         {editMode === 'potrero' && (editingId || potreroMode === 'draw') && (
@@ -862,7 +870,7 @@ export default function MapPage() {
       <section className="relative min-w-0 flex-1">
         <PlaceSearchBar
           {...placeSearch}
-          className="absolute left-3 right-3 top-16 z-[1000] sm:left-14 sm:right-auto sm:top-3 sm:w-[min(70%,390px)] lg:left-1/2 lg:-translate-x-1/2"
+          className="absolute left-3 right-3 top-32 z-[1000] md:left-14 md:right-36 md:top-3 lg:left-1/2 lg:right-auto lg:w-[min(70%,390px)] lg:-translate-x-1/2"
         />
         <PolygonMapCanvas
           mapRef={mapRef}

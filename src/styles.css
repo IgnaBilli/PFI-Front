@@ -237,6 +237,13 @@ button:disabled {
   animation: rise 0.45s ease-out both;
 }
 
+@media (max-width: 767px) {
+  .map-page .leaflet-top { top: 56px; }
+  #main-navigation { overflow-y: auto; overscroll-behavior: contain; }
+  #main-navigation > div:first-child img { max-height: 72px; width: auto; }
+  #main-navigation nav { flex-shrink: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .animate-rise,

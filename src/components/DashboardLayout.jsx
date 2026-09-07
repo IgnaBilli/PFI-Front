@@ -59,7 +59,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-dvh min-h-[560px] overflow-hidden bg-forest-900 text-sand-300 text-sm">
+    <div className="flex h-dvh min-h-[360px] overflow-hidden bg-forest-900 text-sand-300 text-sm">
       <a
         href="#app-main"
         className="fixed left-3 top-3 z-[3000] -translate-y-20 rounded-lg bg-sand-100 px-4 py-2 font-bold text-forest-950 transition-transform focus:translate-y-0">
@@ -70,7 +70,7 @@ export default function DashboardLayout() {
         id="main-navigation"
         aria-label="Navegación principal"
         className={`fixed inset-y-0 left-0 z-[2000] flex w-[min(18rem,86vw)] flex-col border-r border-sand-100/10 bg-forest-900 px-4 py-5 shadow-[12px_0_36px_rgba(0,0,0,.3)] transition-transform duration-200 md:relative md:visible md:w-24 md:translate-x-0 md:px-3 md:shadow-none xl:w-64 xl:px-5 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full'}`}>
-        <div className="relative flex items-center justify-center">
+        <div className="relative flex shrink-0 items-center justify-center">
           <Logo size={136} className="md:hidden xl:block" />
           <Logo variant="icon" size={42} className="hidden md:block xl:hidden" />
           <button
@@ -92,10 +92,10 @@ export default function DashboardLayout() {
           <p className="mt-0.5 text-xs text-sand-500">Argentina</p>
         </div>
 
-        <p className="mt-7 mb-3 shrink-0 px-1 text-xs font-bold uppercase tracking-[.14em] text-sand-500 md:text-center xl:text-left">
+        <p className="mt-4 mb-3 shrink-0 px-1 text-xs font-bold uppercase tracking-[.14em] text-sand-500 md:hidden xl:block xl:text-left">
           Navegación
         </p>
-        <nav className="space-y-2 overflow-y-auto" aria-label="Secciones de la estancia">
+        <nav className="min-h-24 flex-1 space-y-2 overflow-y-auto overscroll-contain" aria-label="Secciones de la estancia">
           {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -147,8 +147,9 @@ export default function DashboardLayout() {
             aria-controls="main-navigation"
             aria-expanded={open}
             onClick={() => setOpen(true)}
-            className="app-icon-button">
+            className="app-button-ghost gap-2 px-2">
             <Menu size={19} aria-hidden="true" />
+            <span>Menú</span>
           </button>
           <Logo variant="icon" size={34} />
           <span className="size-[42px]" aria-hidden="true" />

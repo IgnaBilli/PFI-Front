@@ -78,6 +78,14 @@ vi.mock('../components/AddCattleModal.jsx', () => ({
 }))
 
 describe('MapPage estancia deletion', () => {
+  it('offers draw and boundary edit directly and keeps estancia tools open', async () => {
+    const user = userEvent.setup();
+    render(<MapPage />);
+    expect(screen.getByRole('button', { name: 'Dibujar potrero' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar límite' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Ver estancia' }));
+    expect(screen.getByRole('button', { name: /Abrir panel de potreros/ })).toHaveAttribute('aria-expanded', 'true');
+  });
   beforeEach(() => {
     vi.clearAllMocks()
     hookState.paddocks = []
