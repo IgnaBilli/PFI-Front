@@ -9,7 +9,13 @@ export function createCattleForEstancia(estanciaId, payload) {
 }
 
 export function createCattleForPaddock(paddockId, payload) {
-  return api.post(`/potrero/${paddockId}/ganado`, payload)
+  const route = payload.dias_previos_potrero === undefined ? 'ganado' : 'ganado-con-ingreso'
+  return api.post(`/potrero/${paddockId}/${route}`, payload).catch(error => {
+    if (route === 'ganado-con-ingreso' && error.status === 404) {
+      throw new Error('El backend conectado aún no admite días previos. No se registró este animal. Esta función requiere el backend local actualizado y su migración.')
+    }
+    throw error
+  })
 }
 
 export function updateCattle(id, patch) {

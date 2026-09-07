@@ -545,7 +545,7 @@ export default function PaddockDetailPage() {
 
       <section className="mt-4 grid gap-4 lg:grid-cols-2" aria-label="Stock utilizable y demanda nutricional">
         <article className="app-panel p-5 sm:p-6">
-          <SectionHeading title="Stock utilizable" description={`Materia seca utilizable estimada luego de sumar crecimiento y descontar consumo. ${stockWindowDays != null ? `Período calculado: ${stockWindowDays} días.` : 'La ventana inicial se determina según la estación y la cobertura del potrero.'}`} />
+          <SectionHeading title="Stock utilizable" description="Pasto disponible estimado, descontando el consumo." />
           {analyticsLoading && !forageOverride ? (
             <div className="mt-6 space-y-3">
               <div className="app-skeleton h-10 w-48 rounded" />
@@ -554,17 +554,18 @@ export default function PaddockDetailPage() {
           ) : latestForage ? (
             <div className="mt-6">
               <StockTwoDays stock={latestForage} />
-              <p className="mt-2 text-xs text-sand-500">Fecha objetivo {latestForage.fecha_objetivo ? formatShortDate(latestForage.fecha_objetivo) : 'sin fecha informada'} · rango {Number(latestForage.stock_final_min_kg_ms_ha).toFixed(0)}–{Number(latestForage.stock_final_max_kg_ms_ha).toFixed(0)} kg MS/ha</p>
               <StockNextUpdate date={stockDetail?.seguimiento_diario?.proxima_actualizacion} running={forageGenLoading} />
               <p className="mt-3 rounded-md border border-warning-400/25 bg-warning-400/10 px-3 py-2 text-xs leading-relaxed text-warning-400">
                 {stockDetail?.stock_inicial_estimado?.metodo === 'suma_produccion_utilizable_bloques_5_dias'
                   ? 'Estimación de producción acumulada menos consumo, sin sumar biomasa previa. No reemplaza un aforo.'
                   : 'Stock inicial preliminar no validado: es un proxy ajustado con DMP y no reemplaza un aforo.'}
               </p>
+              <details className="mt-4">
+                <summary className="cursor-pointer text-sm font-semibold text-sand-400">Ver crecimiento y detalles del cálculo</summary>
+              <p className="mt-3 text-xs text-sand-500">Saldo guardado al {latestForage.fecha_objetivo ? formatShortDate(latestForage.fecha_objetivo) : 'sin fecha'} · rango {Number(latestForage.stock_final_min_kg_ms_ha).toFixed(0)}–{Number(latestForage.stock_final_max_kg_ms_ha).toFixed(0)} kg MS/ha</p>
               {stockDetail?.seguimiento_diario && (
                 <p className="mt-3 text-xs leading-relaxed text-sand-400">
                   Crecimiento actualizado hasta {formatShortDate(stockDetail.seguimiento_diario.crecimiento_actualizado_hasta)}.
-                  Próxima actualización: {formatShortDate(stockDetail.seguimiento_diario.proxima_actualizacion)}.
                   {' '}{stockDetail.seguimiento_diario.advertencia}
                 </p>
               )}
@@ -594,10 +595,6 @@ export default function PaddockDetailPage() {
                   <dd className={`mt-1 font-bold tabular-nums ${netStockChange >= 0 ? 'text-brand-400' : 'text-danger-400'}`}>{Number.isFinite(netStockChange) ? `${netStockChange >= 0 ? '+' : ''}${netStockChange.toFixed(1)} kg MS/ha` : 'Sin datos'}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-sand-500">Stock total del potrero</dt>
-                  <dd className="mt-1 font-bold tabular-nums text-sand-100">{latestForage.stock_final_total_kg_ms != null ? `${Number(latestForage.stock_final_total_kg_ms).toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg MS` : 'Sin datos'}</dd>
-                </div>
-                <div>
                   <dt className="text-xs text-sand-500">Consumo descontado</dt>
                   <dd className="mt-1 font-bold tabular-nums text-sand-100">{latestForage.consumo_acumulado_kg_ms_ha != null ? `${Number(latestForage.consumo_acumulado_kg_ms_ha).toFixed(1)} kg MS/ha en ${stockWindowDays} días` : 'Sin datos'}</dd>
                 </div>
@@ -615,6 +612,7 @@ export default function PaddockDetailPage() {
                 </div>
               </dl>
               {stockDetail?.seleccion_referencia?.justificacion && <p className="mt-4 text-xs leading-relaxed text-sand-500">{stockDetail.seleccion_referencia.justificacion}</p>}
+              </details>
             </div>
           ) : (
             <div className="app-empty mt-4 min-h-40 rounded-lg border border-dashed border-sand-100/15">

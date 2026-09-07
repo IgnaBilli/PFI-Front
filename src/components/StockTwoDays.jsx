@@ -16,13 +16,15 @@ export function stockTwoDays(stock, now = new Date()) {
   const base = numeric(stock?.stock_final_central_kg_ms_ha);
   const growth = numeric(stock?.crecimiento_utilizable_kg_ms_ha_dia);
   const consumption = numeric(stock?.consumo_diario_kg_ms_ha);
+  const area = numeric(stock?.superficie_ha);
   const rate = growth != null && consumption != null && growth >= 0 && consumption >= 0 ? growth - consumption : null;
   return [0, 1].map(offset => {
     const date = new Date(todayTime + offset * DAY).toISOString().slice(0, 10);
     const days = (todayTime - baseTime) / DAY + offset;
-    return { date, projected: days > 0,
-      value: !validDate || base == null || base < 0 ? null : days === 0 ? base
-        : rate == null ? null : Math.max(0, base + days * rate) };
+    const value = !validDate || base == null || base < 0 ? null : days === 0 ? base
+      : rate == null ? null : Math.max(0, base + days * rate);
+    return { date, projected: days > 0, value,
+      total: value != null && area != null && area > 0 ? value * area : null };
   });
 }
 
@@ -43,10 +45,17 @@ export default function StockTwoDays({ stock }) {
               {day.value == null ? 'Sin datos' : day.value.toLocaleString('es-AR', { maximumFractionDigits: 1 })}
             </p>
             <p className="text-xs text-sand-500">kg MS/ha · {day.projected ? 'Proyección' : 'Saldo estimado'}</p>
+            <div className="mt-4 border-t border-sand-100/10 pt-3">
+              <p className="text-xs text-sand-500">Total del potrero · {index ? 'Mañana' : 'Hoy'}</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-sand-100">
+                {day.total == null ? 'Sin datos' : day.total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                {day.total != null && <span className="ml-1 text-xs font-normal text-sand-500">kg MS</span>}
+              </p>
+            </div>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-sand-500">Proyección con el crecimiento y consumo diarios del último saldo guardado, suponiendo que se mantienen. No es un nuevo cálculo DMP ni incorpora cambios del rodeo aún no calculados.</p>
+      <p className="mt-3 text-xs text-sand-500">Proyección con el crecimiento y consumo guardados, sin cambios del rodeo aún no calculados.</p>
     </div>
   );
 }

@@ -4,6 +4,13 @@ import { stockTwoDays } from './StockTwoDays.jsx';
 const stock = { fecha_objetivo: '2026-09-07', stock_final_central_kg_ms_ha: 243,
   crecimiento_utilizable_kg_ms_ha_dia: 3, consumo_diario_kg_ms_ha: 8 };
 describe('stock today and tomorrow', () => {
+  it('converts both balances to whole-paddock totals using estimated area', () => {
+    const now = new Date('2026-09-07T12:00:00Z');
+    expect(stockTwoDays({ ...stock, superficie_ha: 10 }, now).map(d => d.total)).toEqual([2430, 2380]);
+    for (const superficie_ha of [null, '', 0, -1]) {
+      expect(stockTwoDays({ ...stock, superficie_ha }, now).map(d => d.total)).toEqual([null, null]);
+    }
+  });
   it('subtracts consumption per hectare, without double counting today', () => {
     expect(stockTwoDays(stock, new Date('2026-09-07T12:00:00Z')).map(d => d.value)).toEqual([243, 238]);
   });

@@ -43,6 +43,7 @@ export default function AddCattleModal({
   const { estancia } = useAuth();
   const [category, setCategory] = useState('VACA');
   const [quantity, setQuantity] = useState('1');
+  const [previousDays, setPreviousDays] = useState('0');
   const [weight, setWeight] = useState('');
   const [cc, setCc] = useState('');
   const [status, setStatus] = useState('N');
@@ -67,6 +68,7 @@ export default function AddCattleModal({
     if (!isOpen) return;
     setCategory('VACA');
     setQuantity('1');
+    setPreviousDays('0');
     setWeight('');
     setCc('');
     setStatus('N');
@@ -168,6 +170,11 @@ export default function AddCattleModal({
     setWeightWarning('');
 
     const qty = parseInt(quantity, 10);
+    const days = Number(previousDays);
+    if (summaryPaddockId != null && (previousDays.trim() === '' || !Number.isInteger(days) || days < 0 || days > 36500)) {
+      setError('Los días previos deben ser un entero entre 0 y 36500.');
+      return;
+    }
     if (isNaN(qty) || qty < 1) {
       setError('Ingresá una cantidad válida (mínimo 1).');
       return;
@@ -211,14 +218,14 @@ export default function AddCattleModal({
     }
 
     const animals = generatedCaravanas.map((caravana) =>
-      buildCattleCreatePayload({
+      ({ ...buildCattleCreatePayload({
         caravana,
         sex,
         category,
         weight: weightNumber,
         cc: isVaca ? cc : '',
         status: isVaca ? status : 'DESCONOCIDO',
-      })
+      }), ...(summaryPaddockId != null ? { dias_previos_potrero: days } : {}) })
     );
 
     const paddockId = lockedPaddockLabel ? null : selectedPaddockId ? Number(selectedPaddockId) : null;
@@ -278,6 +285,11 @@ export default function AddCattleModal({
             </div>
           )}
 
+          {summaryPaddockId != null && <div>
+            <label htmlFor={`${titleId}-previous-days`} className="app-label">Días dentro del potrero previos</label>
+            <input id={`${titleId}-previous-days`} type="number" min="0" max="36500" step="1" required
+              value={previousDays} onChange={e => setPreviousDays(e.target.value)} className="app-field" />
+          </div>}
           <div>
              <label htmlFor={`${titleId}-category`} className="app-label">Categoría</label>
              <select
