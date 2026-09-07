@@ -251,11 +251,11 @@ export default function SummaryPage() {
               [paddocksError || paddockAnalyticsError ? '—' : alertPaddocks.length, 'Alertas de carga', AlertTriangle],
               [paddocksError || paddockAnalyticsError ? '—' : recommendationsCount, 'Recomendaciones', Lightbulb],
             ].map(([value, label, Icon]) => (
-              <div key={label} className="flex min-w-0 items-center gap-3 px-4 py-4 sm:px-5">
+              <div key={label} className="flex min-w-0 flex-col items-start gap-2 px-3 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
                 <Icon size={17} className="shrink-0 text-sand-500" aria-hidden="true" />
                 <span className="min-w-0">
                   <strong className="block text-xl font-bold tabular-nums text-white">{value}</strong>
-                  <span className="block text-xs leading-tight text-sand-500">{label}</span>
+                  <span className="block break-words text-xs leading-tight text-sand-500">{label}</span>
                 </span>
               </div>
             ))}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stockTwoDays } from './StockTwoDays.jsx';
+import { stockTwoDays } from '../utils/stockProjection.js';
 
 const stock = { fecha_objetivo: '2026-09-07', stock_final_central_kg_ms_ha: 243,
   crecimiento_utilizable_kg_ms_ha_dia: 3, consumo_diario_kg_ms_ha: 8 };

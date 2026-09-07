@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextStockUpdateLabel } from './StockNextUpdate.jsx';
+import { nextStockUpdateLabel } from '../utils/nextStockUpdate.js';
 
 describe('nextStockUpdateLabel', () => {
   const now = new Date('2026-09-06T15:00:00Z');

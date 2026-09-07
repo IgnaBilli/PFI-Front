@@ -19,6 +19,15 @@ export default function DashboardLayout() {
   const sidebarRef = useRef(null);
 
   useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)');
+    function closeMobileMenu(event) {
+      if (event.matches) setOpen(false);
+    }
+    desktop.addEventListener('change', closeMobileMenu);
+    return () => desktop.removeEventListener('change', closeMobileMenu);
+  }, []);
+
+  useEffect(() => {
     if (!open) return undefined;
 
     const focusableSelector =
