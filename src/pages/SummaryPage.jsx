@@ -125,7 +125,8 @@ export default function SummaryPage() {
   });
 
   const forageGrowthPoints = (analiticas?.evolucionStock7dias ?? [])
-    .map((d) => ({ t: new Date(/^\d{4}-\d{2}-\d{2}$/.test(d.fecha) ? `${d.fecha}T12:00:00` : d.fecha).getTime(), value: Number(d.stock_kg_ms_ha_promedio) }))
+    .filter((d) => d.stock_total_kg_ms != null)
+    .map((d) => ({ t: new Date(/^\d{4}-\d{2}-\d{2}$/.test(d.fecha) ? `${d.fecha}T12:00:00` : d.fecha).getTime(), value: Number(d.stock_total_kg_ms), coverage: `${d.potreros_con_datos}/${d.potreros_activos} potreros`, partial: !d.completo }))
     .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.value))
     .sort((a, b) => a.t - b.t);
 
@@ -367,7 +368,7 @@ export default function SummaryPage() {
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Sprout size={16} className="text-brand-400" aria-hidden="true" />
-                <h3 className="text-sm font-bold text-sand-100">Evolución del Stock · 7 días</h3>
+                <h3 className="text-sm font-bold text-sand-100">Stock utilizable total · últimos 7 días</h3>
               </div>
               {forageGrowthPoints.length > 0 && (
                 <span className="text-xs text-sand-500">
@@ -375,6 +376,10 @@ export default function SummaryPage() {
                 </span>
               )}
             </div>
+            <p className="mt-2 text-xs text-sand-500">Suma del último saldo de cada potrero para cada fecha, en kg MS. No se cuentan los recálculos repetidos.</p>
+            {forageGrowthPoints.some((point) => point.partial) && (
+              <p className="mt-2 text-xs text-amber-400">Hay días con datos parciales: el total incluye solo los potreros con stock calculado para esa fecha. Consultá cada punto para ver la cobertura.</p>
+            )}
             {estanciaAnaliticasLoading ? (
               <LoadingBlock className="mt-4 h-52" />
             ) : estanciaDataError ? (
@@ -384,9 +389,9 @@ export default function SummaryPage() {
                 points={forageGrowthPoints}
                 color={FORAGE_COLOR}
                 formatX={formatShortDate}
-                formatTooltip={(point) => `${formatShortDate(point.t)} · ${point.value.toFixed(0)} kg MS/ha`}
+                formatTooltip={(point) => `${formatShortDate(point.t)} · ${point.value.toLocaleString('es-AR', { maximumFractionDigits: 0 })} kg MS · ${point.coverage}${point.partial ? ' · Parcial' : ''}`}
                 emptyMessage="Todavía no hay suficientes mediciones en los últimos 7 días."
-                ariaLabel="Stock utilizable promedio durante los últimos 7 días"
+                ariaLabel="Stock utilizable total de la estancia durante los últimos 7 días"
               />
             )}
           </article>
