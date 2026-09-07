@@ -37,6 +37,7 @@ import { createCattleForPaddock } from '../services/cattleService.js';
 import { formatShortDate } from '../utils/format.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
+import StockTwoDays from '../components/StockTwoDays.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
 import DonutChart from '../components/DonutChart.jsx';
 import TrendLineChart from '../components/TrendLineChart.jsx';
@@ -402,7 +403,6 @@ export default function PaddockDetailPage() {
   const paddockNameById = new Map(paddocksWithCounts.map((item) => [item.id, item.name]));
   const hectares = Number(paddock.hectares);
   const formattedHectares = Number.isFinite(hectares) ? hectares.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '-';
-  const forageValue = Number(latestForage?.stock_final_central_kg_ms_ha);
   const demandValue = Number(nutrition?.kg_materia_seca_dia);
   const stockDetail = latestForage?.detalle_json ?? null;
   const stockWindowDays = stockDetail?.potrero?.dias_calculo ?? null;
@@ -553,10 +553,7 @@ export default function PaddockDetailPage() {
             </div>
           ) : latestForage ? (
             <div className="mt-6">
-              <p className="font-display text-3xl font-extrabold tabular-nums text-sand-100">
-                {Number.isFinite(forageValue) ? forageValue.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '-'}
-                <span className="ml-2 text-sm font-bold text-sand-500">kg MS/ha</span>
-              </p>
+              <StockTwoDays stock={latestForage} />
               <p className="mt-2 text-xs text-sand-500">Fecha objetivo {latestForage.fecha_objetivo ? formatShortDate(latestForage.fecha_objetivo) : 'sin fecha informada'} · rango {Number(latestForage.stock_final_min_kg_ms_ha).toFixed(0)}–{Number(latestForage.stock_final_max_kg_ms_ha).toFixed(0)} kg MS/ha</p>
               <StockNextUpdate date={stockDetail?.seguimiento_diario?.proxima_actualizacion} running={forageGenLoading} />
               <p className="mt-3 rounded-md border border-warning-400/25 bg-warning-400/10 px-3 py-2 text-xs leading-relaxed text-warning-400">
