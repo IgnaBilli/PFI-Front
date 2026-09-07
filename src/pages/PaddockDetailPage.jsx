@@ -35,6 +35,7 @@ import {
 } from '../services/analyticsService.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
 import { formatShortDate } from '../utils/format.js';
+import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
 import StockTwoDays from '../components/StockTwoDays.jsx';
@@ -137,6 +138,11 @@ function localDateValue() {
 }
 
 export default function PaddockDetailPage() {
+  const [stayNow, setStayNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setStayNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
   const { paddockId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -713,6 +719,7 @@ export default function PaddockDetailPage() {
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold text-sand-100">Caravana {animal.caravana}</span>
+                      <span className="mt-1 block text-xs text-sand-300">Tiempo en el potrero: {paddockStay(animal.paddockEntryDate, stayNow)}</span>
                       <span className="mt-1 block text-xs leading-relaxed text-sand-300">{animal.category || 'Sin categoría'} · {animal.weight !== '-' ? animal.weight : 'Peso sin datos'} · {formatPhysiologicalStatus(animal.status)}</span>
                     </span>
                   </label>
@@ -737,6 +744,7 @@ export default function PaddockDetailPage() {
                       <th scope="col" className="px-4 py-3 font-bold">Categoría</th>
                       <th scope="col" className="px-4 py-3 text-right font-bold">Peso vivo</th>
                       <th scope="col" className="px-4 py-3 font-bold">Estado fisiológico</th>
+                      <th scope="col" className="px-4 py-3 font-bold">Tiempo en el potrero</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-sand-100/10">
@@ -755,6 +763,7 @@ export default function PaddockDetailPage() {
                         <td className="px-4 py-3 text-sand-300">{animal.category || 'Sin categoría'}</td>
                         <td className="px-4 py-3 text-right tabular-nums text-sand-300">{animal.weight}</td>
                         <td className="px-4 py-3 text-sand-300">{formatPhysiologicalStatus(animal.status)}</td>
+                        <td className="px-4 py-3 text-sand-300" title={animal.paddockEntryDate ? `Ingreso: ${animal.paddockEntryDate}` : undefined}>{paddockStay(animal.paddockEntryDate, stayNow)}</td>
                       </tr>
                     ))}
                   </tbody>

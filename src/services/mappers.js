@@ -81,6 +81,7 @@ export function mapCattleFromApi(c) {
     cc: c.condicion_corporal ?? '-',
     status: c.estado_fisiologico ?? 'DESCONOCIDO',
     paddockId: c.id_potrero_actual ?? null,
+    paddockEntryDate: c.fecha_ingreso_potrero ?? null,
     paddock: c.potrero_actual_nombre ?? '-',
   }
 }
