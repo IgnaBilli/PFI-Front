@@ -1,4 +1,7 @@
 import { api } from './api.js'
+export function createCattleBatch(paddockId, animals) {
+  return api.post(`/potrero/${paddockId}/ganado-lote`, {animales:animals});
+}
 
 export function fetchCattle(estanciaId) {
   return api.get(`/estancia/${estanciaId}/ganado`)

@@ -18,7 +18,7 @@ import {
   bulkDeleteCattle,
   bulkUpdateCategory,
   createCattleForEstancia,
-  createCattleForPaddock,
+  createCattleBatch,
   deleteCattle,
   relocateCattle,
   updateCattle,
@@ -94,13 +94,14 @@ export default function CattlePage() {
     setActionError('');
     let createdCount = 0;
     try {
-      for (const payload of animals) {
-        if (targetPaddockId) {
-          await createCattleForPaddock(targetPaddockId, payload);
-        } else {
+      if (targetPaddockId) {
+        await createCattleBatch(targetPaddockId, animals);
+        createdCount = animals.length;
+      } else {
+        for (const payload of animals) {
           await createCattleForEstancia(estanciaId, payload);
+          createdCount += 1;
         }
-        createdCount += 1;
       }
       await reloadAll();
       setIsModalOpen(false);

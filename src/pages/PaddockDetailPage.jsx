@@ -33,7 +33,8 @@ import {
   fetchLatestClima,
   fetchPaddockTraslados,
 } from '../services/analyticsService.js';
-import { createCattleForPaddock } from '../services/cattleService.js';
+import { createCattleBatch } from '../services/cattleService.js';
+import { dailyStockPoints } from '../utils/stockHistory.js';
 import { formatShortDate } from '../utils/format.js';
 import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
@@ -85,12 +86,7 @@ function SectionHeading({ id, title, description, action }) {
 }
 
 function ForageTrendChart({ history, color }) {
-  const points = history
-    .map((item) => ({
-      t: new Date(item.fecha_calculo).getTime(),
-      value: Number(item.stock_final_central_kg_ms_ha ?? item.kg_materia_seca_ha),
-    }))
-    .filter((point) => Number.isFinite(point.t) && Number.isFinite(point.value));
+  const points = dailyStockPoints(history);
 
   return (
     <TrendLineChart
@@ -338,10 +334,8 @@ export default function PaddockDetailPage() {
     setActionError('');
     let createdCount = 0;
     try {
-      for (const payload of animals) {
-        await createCattleForPaddock(paddock.id, payload);
-        createdCount += 1;
-      }
+      await createCattleBatch(paddock.id, animals);
+      createdCount = animals.length;
       await reloadCattle();
       setAddingCattle(false);
     } catch (error) {
@@ -789,7 +783,7 @@ export default function PaddockDetailPage() {
       </section>
 
       <section className="app-panel mt-4 p-5 sm:p-6" aria-labelledby="history-title">
-        <SectionHeading id="history-title" title="Historial de Stock" description="Evolución del Stock utilizable central por hectárea. Cada estimación conserva su ventana de cálculo." />
+        <SectionHeading id="history-title" title="Historial de Stock" description="Último saldo por fecha, en kg MS/ha. Una carga retroactiva revisa el saldo: no representa consumo ocurrido en un solo día." />
         <div className="mt-5">
           {historyLoading ? (
             <div className="app-skeleton h-52 rounded-lg" aria-label="Cargando historial de Stock" />
