@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import OnboardingEstanciaPage from './OnboardingEstanciaPage.jsx';
+import { previewEstanciaBoundary } from '../services/estanciaService.js';
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
@@ -13,6 +14,7 @@ vi.mock('../context/AuthContext.jsx', () => ({
 
 vi.mock('../services/estanciaService.js', () => ({
   createEstancia: vi.fn(),
+  previewEstanciaBoundary: vi.fn().mockResolvedValue({ disponible: true, zonas: [] }),
 }));
 
 // PolygonMapCanvas mounts a real Leaflet map, which needs a laid-out DOM
@@ -37,6 +39,25 @@ vi.mock('../components/PolygonMapCanvas.jsx', () => ({
 }));
 
 describe('OnboardingEstanciaPage', () => {
+  it('shows occupied boundary feedback before saving', async () => {
+    previewEstanciaBoundary.mockResolvedValueOnce({ disponible: false, zonas: [] });
+    const user = userEvent.setup();
+    render(<OnboardingEstanciaPage />);
+    await user.type(screen.getByLabelText('1. Nombre de la estancia'), 'Prueba');
+    for (const point of ['a', 'b', 'c']) await user.click(screen.getByText(`mock-add-${point}`));
+    expect(await screen.findByText(/Tu límite cruza o toca/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear estancia' })).toBeDisabled();
+  });
+
+  it('enables save only after a successful boundary preview', async () => {
+    const user = userEvent.setup();
+    render(<OnboardingEstanciaPage />);
+    await user.type(screen.getByLabelText('1. Nombre de la estancia'), 'Prueba');
+    for (const point of ['a', 'b', 'c']) await user.click(screen.getByText(`mock-add-${point}`));
+    expect(screen.getByRole('button', { name: 'Crear estancia' })).toBeDisabled();
+    expect(await screen.findByText(/Sin superposición detectada/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear estancia' })).toBeEnabled();
+  });
   it('renders the place search bar so users can locate their estancia', () => {
     render(<OnboardingEstanciaPage />);
     expect(screen.getByPlaceholderText('Buscar localidad o dirección...')).toBeInTheDocument();

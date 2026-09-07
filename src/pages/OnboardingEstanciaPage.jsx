@@ -9,6 +9,7 @@ import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
 import PlaceSearchBar from '../components/PlaceSearchBar.jsx';
 import usePlaceSearch from '../hooks/usePlaceSearch.js';
 import Logo from '../components/Logo.jsx';
+import useBoundaryPreview from '../hooks/useBoundaryPreview.js';
 
 export default function OnboardingEstanciaPage() {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ export default function OnboardingEstanciaPage() {
   const [vertices, setVertices] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const polygonIsSimple = isSimplePolygon(vertices);
+  const boundary = useBoundaryPreview(vertices, vertices.length >= 3 && polygonIsSimple);
 
   function addVertex(lat, lng) {
     setVertices((current) => [...current, { latitude: Number(lat), longitude: Number(lng) }]);
@@ -64,6 +67,10 @@ export default function OnboardingEstanciaPage() {
       setError('El polígono se cruza a sí mismo. Ajustá los vértices antes de guardar.');
       return;
     }
+    if (!boundary.data?.disponible || boundary.pending || boundary.error) {
+      setError('El límite todavía no está verificado como disponible. Ajustá el dibujo o esperá la comprobación.');
+      return;
+    }
     setSaving(true);
     try {
       await createEstancia({ nombre: name.trim(), geom: coordsToGeoJsonPolygon(vertices) });
@@ -76,8 +83,7 @@ export default function OnboardingEstanciaPage() {
     }
   }
 
-  const polygonIsSimple = isSimplePolygon(vertices);
-  const canSave = name.trim() && vertices.length >= 3 && polygonIsSimple;
+  const canSave = name.trim() && vertices.length >= 3 && polygonIsSimple && boundary.data?.disponible && !boundary.pending && !boundary.error;
 
   return (
     <main className="relative flex h-dvh min-h-[560px] flex-col overflow-hidden bg-[var(--canvas-deep)] text-sm md:flex-row">
@@ -170,6 +176,16 @@ export default function OnboardingEstanciaPage() {
           )}
         </div>
 
+        <div className="app-panel-muted mt-3 px-3 py-2 text-xs" aria-live="polite">
+          <p>Rojo punteado: zona ya registrada. Tu límite no puede cruzarla ni tocar su borde.</p>
+          <p className="mt-1">{vertices.length < 3 ? 'Marcá al menos 3 puntos para consultar los límites cercanos.'
+            : boundary.pending ? 'Verificando superposición…'
+            : boundary.error ? `No se pudo verificar: ${boundary.error}`
+            : boundary.data?.incompleto ? 'Hay demasiadas zonas. Reducí la extensión del dibujo.'
+            : boundary.data?.disponible ? 'Sin superposición detectada. Se volverá a validar al guardar.'
+            : boundary.data ? 'Tu límite cruza o toca una zona registrada. Mové los vértices fuera del borde rojo.' : ''}</p>
+          <p className="mt-1 text-[var(--text-muted)]">Referencia de registros de TerraBovina, no un límite catastral. Fuera del rojo no implica disponibilidad hasta verificar el dibujo.</p>
+        </div>
         {error && (
           <p role="alert" aria-live="assertive" className="app-error mt-3.5 text-sm">
             {error}
@@ -196,7 +212,7 @@ export default function OnboardingEstanciaPage() {
         </button>
         {!canSave && (
           <p id="onboarding-save-hint" className="mt-2 text-center text-xs text-[var(--text-muted)]">
-            Completá el nombre y al menos 3 vértices válidos.
+            Completá el nombre y un límite válido, sin superposición, para guardar.
           </p>
         )}
         <button
@@ -216,8 +232,9 @@ export default function OnboardingEstanciaPage() {
           isDrawing
           onMapClick={addVertex}
           vertices={vertices}
+          occupiedZones={boundary.zones}
           selectedPlace={placeSearch.selectedPlace}
-          invalid={vertices.length >= 3 && !polygonIsSimple}
+          invalid={vertices.length >= 3 && (!polygonIsSimple || (boundary.data && !boundary.data.disponible))}
           onVertexDrag={moveVertex}
         />
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[500] rounded-md border border-[var(--border)] bg-[var(--surface)]/95 px-3.5 py-2.5 text-center text-xs font-semibold text-[var(--text-soft)] shadow-xl sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:whitespace-nowrap">

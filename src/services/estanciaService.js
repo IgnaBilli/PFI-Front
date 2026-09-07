@@ -1,5 +1,9 @@
 import { api } from './api.js'
 
+export function previewEstanciaBoundary(geom) {
+  return api.post('/estancia/validar-limite', { geom })
+}
+
 export function getEstancia() {
   return api.get('/estancia')
 }

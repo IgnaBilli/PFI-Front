@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { DomEvent, divIcon, latLngBounds } from 'leaflet'
 import {
   CircleMarker,
+  GeoJSON,
   MapContainer,
   Marker,
   Polygon,
@@ -85,6 +86,7 @@ export default function PolygonMapCanvas({
   onMapClick,
   vertices,
   existingPolygons = [],
+  occupiedZones = [],
   outlinePolygon = null,
   selectedPlace = null,
   restrictTo = null,
@@ -122,6 +124,14 @@ export default function PolygonMapCanvas({
       />
       <MapClickHandler enabled={isDrawing} onAdd={onMapClick} />
       <BoundsRestrictor restrictTo={restrictTo} defaultMinZoom={minZoom} />
+      {occupiedZones.map((zone, index) => (
+        <GeoJSON
+          key={`${index}-${JSON.stringify(zone)}`}
+          data={zone.geom}
+          style={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.18, weight: 3, dashArray: '6 4' }}
+          interactive={false}
+        />
+      ))}
 
       {outlinePolygon && outlinePolygon.coordinates?.length >= 3 && (
         <Polygon
