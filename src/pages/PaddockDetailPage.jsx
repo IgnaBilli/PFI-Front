@@ -40,6 +40,7 @@ import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
 import StockTwoDays from '../components/StockTwoDays.jsx';
+import NutritionAmount from '../components/NutritionAmount.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
 import DonutChart from '../components/DonutChart.jsx';
 import TrendLineChart from '../components/TrendLineChart.jsx';
@@ -403,7 +404,6 @@ export default function PaddockDetailPage() {
   const paddockNameById = new Map(paddocksWithCounts.map((item) => [item.id, item.name]));
   const hectares = Number(paddock.hectares);
   const formattedHectares = Number.isFinite(hectares) ? hectares.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '-';
-  const demandValue = Number(nutrition?.kg_materia_seca_dia);
   const stockDetail = latestForage?.detalle_json ?? null;
   const stockWindowDays = stockDetail?.potrero?.dias_calculo ?? null;
   const grossGrowth = Number(latestForage?.crecimiento_bruto_kg_ms_ha_dia);
@@ -631,15 +631,9 @@ export default function PaddockDetailPage() {
               <div className="app-skeleton h-10 w-48 rounded" />
               <div className="app-skeleton h-4 w-36 rounded" />
             </div>
-          ) : nutrition ? (
+          ) : herd.length === 0 || nutrition ? (
             <div className="mt-6">
-              <p className="font-display text-3xl font-extrabold tabular-nums text-sand-100">
-                {Number.isFinite(demandValue) ? demandValue.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : '-'}
-                <span className="ml-2 text-sm font-bold text-sand-500">kg MS/día</span>
-              </p>
-              <p className="mt-2 text-xs text-sand-500">
-                {nutrition.cantidad_animales} {nutrition.cantidad_animales === 1 ? 'animal' : 'animales'} · cálculo {nutrition.fecha_calculo ? formatShortDate(nutrition.fecha_calculo) : 'sin fecha informada'}
-              </p>
+              <NutritionAmount estimate={nutrition} animalCount={herd.length} />
               {Object.keys(herdByCategory).length > 0 && (
                 <dl className="mt-6 space-y-2 border-t border-sand-100/10 pt-4">
                   {Object.entries(herdByCategory).map(([category, count]) => (
