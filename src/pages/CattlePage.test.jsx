@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CattlePage from './CattlePage.jsx';
+import * as cattleApi from '../services/cattleService.js';
 
 const hookState = vi.hoisted(() => ({
   cattle: [
@@ -30,6 +31,13 @@ vi.mock('../hooks/usePaddocks.js', () => ({
 
 vi.mock('../components/AddCattleModal.jsx', () => ({ default: () => null }));
 vi.mock('../components/ConfirmDialog.jsx', () => ({ default: () => null }));
+vi.mock('../services/cattleService.js', () => ({
+  assignCattle:vi.fn(),bulkDeleteCattle:vi.fn(),bulkUpdateCategory:vi.fn(),
+  createCattleForEstancia:vi.fn(),createCattleBatch:vi.fn(),deleteCattle:vi.fn(),
+  relocateCattle:vi.fn(),updateCattle:vi.fn(),
+}));
+
+beforeEach(() => vi.clearAllMocks());
 
 describe('CattlePage paddock filtering', () => {
   it('matches animals whose paddock IDs are numeric or string values', async () => {
@@ -42,5 +50,45 @@ describe('CattlePage paddock filtering', () => {
     expect(screen.getByText('NUM-7')).toBeInTheDocument();
     expect(screen.getByText('STR-7')).toBeInTheDocument();
     expect(screen.queryByText('OTHER-8')).not.toBeInTheDocument();
+  });
+});
+
+describe('CattlePage edit validation', () => {
+  it('rejects zero weight before moving or updating an animal', async () => {
+    const user = userEvent.setup();
+    render(<CattlePage />, { wrapper:MemoryRouter });
+    await user.click(screen.getByRole('button',{name:'Editar animal STR-7'}));
+    const row = within(screen.getByRole('row',{name:/STR-7/}));
+    await user.clear(row.getByRole('spinbutton'));
+    await user.type(row.getByRole('spinbutton'),'0');
+    await user.selectOptions(row.getAllByRole('combobox')[1],'8');
+    await user.click(screen.getByRole('button',{name:'Guardar cambios de STR-7'}));
+    expect(screen.getByRole('alert')).toHaveTextContent('peso vivo válido');
+    expect(cattleApi.relocateCattle).not.toHaveBeenCalled();
+    expect(cattleApi.assignCattle).not.toHaveBeenCalled();
+    expect(cattleApi.updateCattle).not.toHaveBeenCalled();
+  });
+
+  it('requires valid body condition before saving a cow', async () => {
+    const user = userEvent.setup();
+    render(<CattlePage />, { wrapper:MemoryRouter });
+    await user.click(screen.getByRole('button',{name:'Editar animal NUM-7'}));
+    const row = within(screen.getByRole('row',{name:/NUM-7/}));
+    await user.clear(row.getAllByRole('spinbutton')[1]);
+    await user.click(screen.getByRole('button',{name:'Guardar cambios de NUM-7'}));
+    expect(screen.getByRole('alert')).toHaveTextContent('condición corporal');
+    expect(cattleApi.updateCattle).not.toHaveBeenCalled();
+  });
+
+  it('saves a valid weight correction', async () => {
+    const user = userEvent.setup();
+    render(<CattlePage />, { wrapper:MemoryRouter });
+    await user.click(screen.getByRole('button',{name:'Editar animal STR-7'}));
+    const row = within(screen.getByRole('row',{name:/STR-7/}));
+    await user.clear(row.getByRole('spinbutton'));
+    await user.type(row.getByRole('spinbutton'),'260');
+    await user.click(screen.getByRole('button',{name:'Guardar cambios de STR-7'}));
+    expect(cattleApi.updateCattle).toHaveBeenCalledWith(2,expect.objectContaining({peso_kg:260}));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

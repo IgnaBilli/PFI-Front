@@ -145,6 +145,16 @@ export default function CattlePage() {
 
   async function handleSave(id) {
     if (!editingOriginal) return;
+    const numericWeight = parseWeightKg(weight);
+    if (!Number.isFinite(numericWeight) || numericWeight < 0.01 || numericWeight > 9999.99) {
+      setActionError('Ingresá un peso vivo válido entre 0,01 y 9999,99 kg.');
+      return;
+    }
+    if (category === 'VACA' &&
+        (String(cc).trim() === '' || !Number.isFinite(Number(cc)) || Number(cc) < 1 || Number(cc) > 5)) {
+      setActionError('La condición corporal es obligatoria para Vaca y debe estar entre 1 y 5.');
+      return;
+    }
     setMutating(true);
     setActionError('');
     try {
