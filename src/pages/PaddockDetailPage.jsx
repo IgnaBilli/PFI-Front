@@ -44,6 +44,7 @@ import NutritionAmount from '../components/NutritionAmount.jsx';
 import PolygonMapCanvas from '../components/PolygonMapCanvas.jsx';
 import DonutChart from '../components/DonutChart.jsx';
 import TrendLineChart from '../components/TrendLineChart.jsx';
+import IntrapaddockAnalysis from '../components/IntrapaddockAnalysis.jsx';
 
 function ToastNotification({ toast, onClose }) {
   if (!toast) return null;
@@ -515,6 +516,8 @@ export default function PaddockDetailPage() {
           </div>
         </div>
       </section>
+
+      <IntrapaddockAnalysis />
 
       <section className="mt-4" aria-labelledby="actions-title">
         <div className="app-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
