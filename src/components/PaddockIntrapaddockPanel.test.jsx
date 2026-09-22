@@ -10,6 +10,15 @@ beforeEach(() => { vi.clearAllMocks(); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('Panel integrado', () => {
+  it('advierte sobre cálculos anteriores y retira el aviso al regenerar', async () => {
+    api.get.mockResolvedValue({ analysis: { generatedAt: 'before' } });
+    api.post.mockResolvedValue({});
+    render(<PaddockIntrapaddockPanel paddockId={42} />);
+    expect(await screen.findByText(/versión anterior que podía descartar/)).toBeInTheDocument();
+    api.get.mockResolvedValue({ analysis: { generatedAt: 'after', processingRevision: 'earthsearch-cog-offset-v2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar análisis' }));
+    await waitFor(() => expect(screen.queryByText(/versión anterior que podía descartar/)).not.toBeInTheDocument());
+  });
   it('abrir el detalle solamente lee; generar inicia el trabajo explícitamente', async () => {
     api.get.mockResolvedValue({ analysis: null, task: { estado: 'SIN_TAREA' } });
     api.post.mockResolvedValue({ task: { estado: 'EJECUTANDO' } });

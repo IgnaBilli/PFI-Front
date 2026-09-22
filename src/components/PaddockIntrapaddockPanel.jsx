@@ -62,6 +62,7 @@ function Panel({ paddockId }) {
     </div>
     {running && <p role="status" className="mt-3 text-sm text-sand-300">La consulta satelital puede tardar varios minutos. Podés seguir usando el sistema; el resultado se guarda al terminar.</p>}
     {error && <p role="alert" className="app-error mt-3">{error}</p>}
+    {analysis && !analysis.processingRevision && <p role="status" className="mt-3 text-sm text-warning-400">Este análisis se calculó con una versión anterior que podía descartar píxeles válidos. Actualizá el análisis para corregir la cobertura y los valores de NDVI.</p>}
     {loading ? <div role="status" className="app-panel mt-4 p-6 text-sand-300">Consultando análisis guardado…</div> : <IntrapaddockAnalysis key={analysis?.generatedAt ?? 'empty'} data={analysis} />}
   </div>;
 }

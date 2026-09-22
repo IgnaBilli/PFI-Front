@@ -38,3 +38,13 @@ export function ndviColor(value) {
   const high = [51, 130, 93];
   return `rgb(${low.map((v, i) => Math.round(v + (high[i] - v) * t)).join(',')})`;
 }
+
+// Prefer the latest sufficiently observed capture; otherwise the best coverage.
+// 80% is a display preference, not a scientific quality certification.
+export function preferredObservationDate(data) {
+  const ranked = [...data.dates].sort().reverse().map(date => ({
+    date, coverage: summarizeObservation(data.sectors, date).coverage,
+  }));
+  return ranked.find(item => item.coverage >= 80)?.date
+    ?? ranked.sort((a, b) => b.coverage - a.coverage)[0]?.date;
+}

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useId, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Info, Layers, Satellite, ScanLine } from 'lucide-react';
-import { formatNdvi, formatObservationDate, ndviColor, observationFor, summarizeObservation } from '../utils/intrapaddock.js';
+import { formatNdvi, formatObservationDate, ndviColor, observationFor, preferredObservationDate, summarizeObservation } from '../utils/intrapaddock.js';
 import './IntrapaddockAnalysis.css';
 
 const number = value => value.toLocaleString('es-AR', { maximumFractionDigits: 1 });
@@ -24,7 +24,7 @@ export default function IntrapaddockAnalysis({ data }) {
 function Analysis({ data }) {
   const id = useId();
   const dates = [...data.dates].sort();
-  const [date, setDate] = useState(() => [...dates].reverse().find(d => summarizeObservation(data.sectors, d).observedArea > 0) ?? dates.at(-1));
+  const [date, setDate] = useState(() => data.illustrative ? dates.at(-1) : preferredObservationDate(data));
   const [selectedId, setSelectedId] = useState(data.sectors[0].id);
   const [layer, setLayer] = useState('vegetation');
   const [showMethod, setShowMethod] = useState(false);
@@ -57,13 +57,14 @@ function Analysis({ data }) {
         <label className="intra-date" htmlFor={`${id}-date`}>
           <span className="app-label">Fecha de observación</span>
           <select id={`${id}-date`} className="app-field" value={date} onChange={event => setDate(event.target.value)}>
-            {[...dates].reverse().map(d => <option key={d} value={d}>{formatObservationDate(d)}</option>)}
+            {[...dates].reverse().map(d => <option key={d} value={d}>{formatObservationDate(d)}{!data.illustrative && ` · ${number(summarizeObservation(data.sectors, d).coverage)} % observado`}</option>)}
           </select>
         </label>
       </header>
 
       {data.illustrative && <div className="intra-demo"><Info size={16} aria-hidden="true" /><p><strong>Datos ilustrativos.</strong> Potrero, sectores y observaciones simulados para evaluar la interfaz.</p></div>}
       {!data.illustrative && <div className="intra-demo"><Satellite size={16} aria-hidden="true" /><p><strong>{data.source}.</strong> Captura: {formatObservationDate(date)}. Los sectores son cuadrantes de comparación, no ambientes agronómicos.{data.warnings?.length > 0 && ' Algunas escenas no se pudieron consultar; se muestran las disponibles.'}</p></div>}
+      {!data.illustrative && <p className="mx-6 mb-5 text-xs text-sand-300">Al abrir se elige la captura más reciente con al menos 80 % de cobertura; si no hay, la de mayor cobertura disponible. Cada fecha corresponde a una sola captura, sin rellenar huecos con otras fechas.</p>}
       {!data.illustrative && summary.coverage < 50 && <p className="mx-6 mb-5 text-sm text-warning-400" role="status">Cobertura limitada: el promedio describe solamente la superficie válida, no representa todo el potrero. Probá otra fecha para comparar.</p>}
 
       <div className="intra-metrics" aria-live="polite" aria-atomic="true">

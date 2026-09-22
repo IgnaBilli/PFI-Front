@@ -3,11 +3,23 @@ import { render, screen, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import IntrapaddockAnalysis from './IntrapaddockAnalysis.jsx';
 import { intrapaddockDemo } from '../../preview/intrapotrero-data.js';
-import { summarizeObservation } from '../utils/intrapaddock.js';
+import { preferredObservationDate, summarizeObservation } from '../utils/intrapaddock.js';
 
 afterEach(cleanup);
 
 describe('Análisis intrapotrero', () => {
+  it('abre la captura reciente suficientemente cubierta y conserva fechas nubladas seleccionables', () => {
+    const data = { dates: ['2026-09-09', '2026-09-14', '2026-09-19'], sectors: [{
+      areaHa: 10, observations: { '2026-09-09': 0.5, '2026-09-14': 0.6, '2026-09-19': 0.7 },
+      validAreaHa: { '2026-09-09': 10, '2026-09-14': 8.5, '2026-09-19': 0.1 },
+    }] };
+    expect(preferredObservationDate(data)).toBe('2026-09-14');
+    data.sectors[0].validAreaHa['2026-09-09'] = 4;
+    data.sectors[0].validAreaHa['2026-09-14'] = 6;
+    expect(preferredObservationDate(data)).toBe('2026-09-14');
+    for (const date of data.dates) data.sectors[0].validAreaHa[date] = 0;
+    expect(preferredObservationDate(data)).toBe('2026-09-19');
+  });
   it('pondera cobertura parcial real y conserva el área sin observar', () => {
     const sectors = [
       { areaHa: 10, observations: { today: 0.8 }, validAreaHa: { today: 2 } },
