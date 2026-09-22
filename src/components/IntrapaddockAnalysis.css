@@ -1,4 +1,6 @@
 .intra { color: var(--text-soft); }
+.intra-real-map { height:440px; position:relative; z-index:0; background:#141e19; }
+.intra-real-map .leaflet-tooltip.intra-leaflet-label { background:#121b17e8; border:1px solid #ddd0bc55; color:#f2e8d8; font:700 12px Manrope,sans-serif; box-shadow:none; }
 .intra-heading { display:flex; justify-content:space-between; gap:24px; padding:24px; }
 .intra-eyebrow { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:800; letter-spacing:.12em; color:#9ebaaa; }
 .intra-date { flex-shrink:0; min-width:200px; }
@@ -61,6 +63,7 @@
   .intra-metrics > div:nth-child(-n+2) { border-bottom:1px solid var(--border); }
 }
 @media(max-width:600px) {
+  .intra-real-map { height:320px; }
   .intra-heading { flex-direction:column; padding:20px 16px; gap:18px; }
   .intra-demo { margin-inline:16px; }
   .intra-date { width:100%; }

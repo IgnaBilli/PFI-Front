@@ -1,9 +1,10 @@
-import { useId, useState } from 'react';
+import { lazy, Suspense, useId, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Info, Layers, Satellite, ScanLine } from 'lucide-react';
 import { formatNdvi, formatObservationDate, ndviColor, observationFor, summarizeObservation } from '../utils/intrapaddock.js';
 import './IntrapaddockAnalysis.css';
 
 const number = value => value.toLocaleString('es-AR', { maximumFractionDigits: 1 });
+const IntrapaddockMap = lazy(() => import('./IntrapaddockMap.jsx'));
 
 export default function IntrapaddockAnalysis({ data }) {
   const id = useId();
@@ -23,7 +24,7 @@ export default function IntrapaddockAnalysis({ data }) {
 function Analysis({ data }) {
   const id = useId();
   const dates = [...data.dates].sort();
-  const [date, setDate] = useState(dates.at(-1));
+  const [date, setDate] = useState(() => [...dates].reverse().find(d => summarizeObservation(data.sectors, d).observedArea > 0) ?? dates.at(-1));
   const [selectedId, setSelectedId] = useState(data.sectors[0].id);
   const [layer, setLayer] = useState('vegetation');
   const [showMethod, setShowMethod] = useState(false);
@@ -31,7 +32,8 @@ function Analysis({ data }) {
   const value = observationFor(selected, date);
   const previousDate = dates[dates.indexOf(date) - 1];
   const previous = previousDate ? observationFor(selected, previousDate) : null;
-  const delta = value !== null && previous !== null ? value - previous : null;
+  const comparison = selected.comparisons?.[date];
+  const delta = data.illustrative ? (value !== null && previous !== null ? value - previous : null) : comparison?.delta ?? null;
   const summary = summarizeObservation(data.sectors, date);
   const history = dates.filter(d => d <= date).map(d => ({ date: d, value: observationFor(selected, d) }));
   const selectedIndex = data.sectors.indexOf(selected);
@@ -61,6 +63,8 @@ function Analysis({ data }) {
       </header>
 
       {data.illustrative && <div className="intra-demo"><Info size={16} aria-hidden="true" /><p><strong>Datos ilustrativos.</strong> Potrero, sectores y observaciones simulados para evaluar la interfaz.</p></div>}
+      {!data.illustrative && <div className="intra-demo"><Satellite size={16} aria-hidden="true" /><p><strong>{data.source}.</strong> Captura: {formatObservationDate(date)}. Los sectores son cuadrantes de comparación, no ambientes agronómicos.{data.warnings?.length > 0 && ' Algunas escenas no se pudieron consultar; se muestran las disponibles.'}</p></div>}
+      {!data.illustrative && summary.coverage < 50 && <p className="mx-6 mb-5 text-sm text-warning-400" role="status">Cobertura limitada: el promedio describe solamente la superficie válida, no representa todo el potrero. Probá otra fecha para comparar.</p>}
 
       <div className="intra-metrics" aria-live="polite" aria-atomic="true">
         <Metric label="NDVI medio observado" value={formatNdvi(summary.mean)} detail="Ponderado por superficie válida" />
@@ -78,7 +82,7 @@ function Analysis({ data }) {
             </div>
             <span className="text-xs text-sand-300">Seleccioná un sector</span>
           </div>
-          <div className="intra-map">
+          {!data.illustrative && data.geometry ? <Suspense fallback={<div className="intra-real-map p-6" role="status">Cargando mapa…</div>}><IntrapaddockMap data={data} date={date} layer={layer} selectedId={selectedId} onSelect={setSelectedId} /></Suspense> : <div className="intra-map">
             <div className="intra-map-caption">{data.illustrative ? 'ESQUEMA ILUSTRATIVO' : 'VISTA ESQUEMÁTICA'}<span>Sin escala geográfica</span></div>
             <span className="intra-north" aria-hidden="true">↑<small>N</small></span>
             <svg viewBox="0 0 720 460" className="intra-map-svg" role="group" aria-label="Sectores del potrero; seleccioná uno para ver su evolución">
@@ -105,10 +109,11 @@ function Analysis({ data }) {
                 </g>;
               })}
             </svg>
-          </div>
+          </div>}
           <div className="intra-legend">
             {layer === 'vegetation' ? <div><span className="text-xs">Menor NDVI</span><span className="intra-gradient" /><span className="text-xs">Mayor NDVI</span><span className="text-xs text-sand-500">0,20 a 0,80 · color saturado fuera del intervalo</span></div> : <span className="text-xs">Los colores identifican sectores; no indican calidad del forraje.</span>}
             <span className="intra-no-data"><i />Sin datos</span>
+            {!data.illustrative && <p className="w-full text-xs text-sand-300">NDVI a 10 m · Máscara SCL a 20 m · Celdas de visualización: {data.scenes?.[date]?.displayResolutionM} m. Imagen de fondo de referencia, de otra fecha.</p>}
           </div>
           <div className="intra-sector-list" role="group" aria-label="Seleccionar sector">
             {data.sectors.map((sector, index) => <button key={sector.id} type="button" aria-label={`${sector.name}, ${number(sector.areaHa)} ha`} aria-pressed={selected.id === sector.id} onClick={() => setSelectedId(sector.id)}>
@@ -121,6 +126,7 @@ function Analysis({ data }) {
           <p className="intra-eyebrow">SECTOR SELECCIONADO</p>
           <h3 className="mt-2 flex items-center gap-2 text-2xl font-bold text-sand-100"><span className="intra-dot" style={{ background: palette[selectedIndex % palette.length] }} />{selected.name}</h3>
           <p className="mt-1 text-sm text-sand-300">{number(selected.areaHa)} ha · {number(selected.areaHa / summary.totalArea * 100)} % del potrero</p>
+          {!data.illustrative && <p className="mt-2 text-sm text-sand-300">Superficie válida: {number(selected.validAreaHa?.[date] ?? 0)} ha</p>}
           <div className="intra-current">
             <p className="text-sm text-sand-300">NDVI medio del sector</p>
             <p className={`mt-2 font-extrabold text-sand-100 ${value === null ? 'text-2xl' : 'text-5xl'}`}>{formatNdvi(value)}</p>
@@ -128,6 +134,7 @@ function Analysis({ data }) {
               {delta < 0 ? <ArrowDownRight size={18} aria-hidden="true" /> : <ArrowUpRight size={18} aria-hidden="true" />}
               {delta > 0 ? '+' : ''}{formatNdvi(delta)} frente al {formatObservationDate(previousDate)}
             </p> : <p className="mt-3 text-sm text-sand-300">{value === null ? 'La imagen no permite observar este sector.' : 'Sin observación anterior comparable.'}</p>}
+            {comparison && <p className="mt-2 text-xs text-sand-300">Comparación sobre {number(comparison.commonAreaHa)} ha observadas en ambas fechas.</p>}
           </div>
           <h4 className="font-bold text-sand-100">Evolución del sector</h4>
           <HistoryChart history={history} id={id} />
@@ -143,8 +150,9 @@ function Analysis({ data }) {
       </footer>
       {showMethod && <div id={`${id}-method`} className="intra-method">
         <p><strong>Promedio y cobertura.</strong> Se pondera el NDVI medio de cada sector observado por sus hectáreas. Las áreas sin datos se excluyen, no se consideran cero. Si cambia la cobertura, el promedio de fechas distintas puede no ser comparable.</p>
-        <p><strong>Sectores y ambientes.</strong> Los sectores de esta demostración son ilustrativos. Loma, bajo o tipo de suelo requieren información topográfica, edáfica y validación en campo; no se deducen del color de una imagen.</p>
-        <p><strong>Histórico.</strong> El gráfico muestra únicamente las fechas hasta la seleccionada. Los huecos no se interpolan y las variaciones se expresan en puntos de NDVI, no en crecimiento forrajero.</p>
+        <p><strong>Sectores y ambientes.</strong> {data.illustrative ? 'Los sectores de esta demostración son ilustrativos.' : 'Se divide el límite real en hasta cuatro cuadrantes geográficos fijos; sus áreas se calculan en una proyección métrica local.'} Loma, bajo o tipo de suelo requieren información topográfica, edáfica y validación en campo; no se deducen del color de una imagen.</p>
+        {!data.illustrative && <p><strong>Calidad y resolución.</strong> Se admiten píxeles SCL de vegetación y suelo descubierto, excluyendo agua, sombras y nubes. Un sector requiere al menos 400 m² válidos para informar un promedio. Las celdas del mapa agrupan píxeles y se muestran sin datos si tienen menos del 50 % de superficie válida. Los promedios usan el área válida a resolución nativa, no los colores del mapa. Se conservan hasta cuatro capturas de los últimos 90 días.</p>}
+        <p><strong>Histórico.</strong> El gráfico muestra únicamente las fechas hasta la seleccionada. Los huecos no se interpolan y las variaciones se expresan en puntos de NDVI, no en crecimiento forrajero. En datos reales, el cambio se calcula sobre los mismos píxeles válidos en ambas capturas; el promedio del gráfico puede usar superficies distintas.</p>
       </div>}
     </section>
   );

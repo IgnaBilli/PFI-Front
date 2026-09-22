@@ -15,7 +15,8 @@ export function observationFor(sector, date) {
 export function summarizeObservation(sectors, date) {
   const totalArea = sectors.reduce((sum, sector) => sum + sector.areaHa, 0);
   const valid = sectors.filter(sector => observationFor(sector, date) !== null);
-  const observedArea = valid.reduce((sum, sector) => sum + sector.areaHa, 0);
+  const areaFor = sector => Math.min(sector.areaHa, Math.max(0, sector.validAreaHa?.[date] ?? sector.areaHa));
+  const observedArea = valid.reduce((sum, sector) => sum + areaFor(sector), 0);
   const values = valid.map(sector => observationFor(sector, date));
   return {
     totalArea,
@@ -23,7 +24,7 @@ export function summarizeObservation(sectors, date) {
     missingArea: totalArea - observedArea,
     coverage: totalArea > 0 ? observedArea / totalArea * 100 : 0,
     mean: observedArea > 0
-      ? valid.reduce((sum, sector) => sum + sector.areaHa * observationFor(sector, date), 0) / observedArea
+      ? valid.reduce((sum, sector) => sum + areaFor(sector) * observationFor(sector, date), 0) / observedArea
       : null,
     min: values.length ? Math.min(...values) : null,
     max: values.length ? Math.max(...values) : null,
