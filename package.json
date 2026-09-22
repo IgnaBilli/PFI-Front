@@ -5,9 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:intrapotrero": "vite --config vite.intrapotrero.config.js --configLoader native",
-    "build:intrapotrero": "vite build --config vite.intrapotrero.config.js --configLoader native",
-    "preview:intrapotrero": "vite preview --config vite.intrapotrero.config.js --configLoader native",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
