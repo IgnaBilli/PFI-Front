@@ -17,7 +17,7 @@ const initial={version:null,configuracion:{zonas:[]},analisis:{fecha:'2026-09-27
  referencia_base_mensual:Array(12).fill(10),preferencia:{puntos:[],advertencia:'Orientativo'},advertencias:[]}};
 function renderPage(){render(<MemoryRouter initialEntries={['/potreros/7/intrapotrero']}><Routes><Route path='/potreros/:paddockId/intrapotrero' element={<Page/>}/></Routes></MemoryRouter>);}
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(async path=>path.endsWith('/intrapotrero')?structuredClone(initial):{nombre:'Norte',geom});createStockEstimate.mockResolvedValue({});});
-async function addZone(user){await user.click(await screen.findByRole('button',{name:'Agregar'}));await user.type(screen.getByLabelText('Nombre'),'Loma norte');await user.click(screen.getByRole('button',{name:'Usar todo el potrero'}));await user.click(screen.getByRole('button',{name:'Aceptar zona'}));}
+async function addZone(user){await user.click(await screen.findByRole('button',{name:'Agregar'}));await user.type(screen.getByLabelText('Nombre'),'Loma norte');await user.selectOptions(screen.getByLabelText('Ambiente de la región'),'loma');await user.click(screen.getByRole('button',{name:'Usar todo el potrero'}));await user.click(screen.getByRole('button',{name:'Aceptar zona'}));}
 it('draws, saves a version, and preserves saved zones when stock refresh fails so it can be retried',async()=>{
  const user=userEvent.setup();renderPage();await addZone(user);
  api.post.mockImplementation(async(_path,body)=>({...initial,version:4,configuracion:{zonas:body.zonas}}));

@@ -7,7 +7,7 @@ import {createStockEstimate} from '../services/analyticsService.js';
 import './intrapaddock.css';
 
 const TYPES={ambiente:'Ambiente productivo',aguada:'Aguada',sombra:'Sombra',inaccesible:'Sector inaccesible'};
-const POSITIONS={sin_definir:'Sin definir',loma:'Loma',media_loma:'Media loma',bajo:'Bajo',otro:'Otro'};
+const POSITIONS={sin_definir:'Sin definir',loma:'Loma',media_loma:'Media loma',bajo:'Bajo'};
 const COLORS={ambiente:'#d9b66e',aguada:'#64b6e8',sombra:'#75bc8d',inaccesible:'#ec8d74'};
 const LEVELS={alta:'#e6b668',media:'#acd2bc',baja:'#789ab4'};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -44,15 +44,16 @@ export default function IntrapaddockPage() {
     window.addEventListener('beforeunload',guard);return()=>window.removeEventListener('beforeunload',guard);
   },[dirty,drawing]);
   const analysis=data?.analisis,summary=data?.resumen,catalog=analysis?.catalogo??[];
+  const selectableCatalog=catalog.filter(c=>c.id!=='pastos_cortos');
   const month=Number((analysis?.fecha??today()).slice(5,7))-1;
   function begin(zone=null) {
-    setError('');setForm(zone?{...blank(),...zone}: {...blank(),ambiente_id:catalog[0]?.id??'',tipo:catalog.length?'ambiente':'aguada'});
+    setError('');setForm(zone?{...blank(),...zone,ambiente_id:selectableCatalog.some(c=>c.id===zone.ambiente_id)?zone.ambiente_id:'',posicion:Object.hasOwn(POSITIONS,zone.posicion)?zone.posicion:'sin_definir'}: {...blank(),tipo:selectableCatalog.length?'ambiente':'aguada'});
     setVertices(zone?zone.geom.coordinates[0].slice(0,-1):[]);setDrawing(true);
   }
   function acceptZone() {
     if(!form.nombre.trim())return setError('Asignale un nombre a la zona.');
     if(vertices.length<3)return setError('Marcá al menos tres puntos en el mapa.');
-    if(form.tipo==='ambiente'&&!form.ambiente_id)return setError('Seleccioná un ambiente regional.');
+    if(form.tipo==='ambiente'&&!selectableCatalog.some(c=>c.id===form.ambiente_id))return setError('Seleccioná un ambiente regional.');
     if(form.tipo==='inaccesible'&&(!form.desde||(form.hasta&&form.hasta<form.desde)))return setError('Revisá las fechas del sector inaccesible.');
     const z={id:form.id??crypto.randomUUID(),nombre:form.nombre.trim(),tipo:form.tipo,
       geom:{type:'Polygon',coordinates:[[...vertices,vertices[0]]]},
@@ -130,8 +131,8 @@ export default function IntrapaddockPage() {
         <div className="intrap-editor-heading"><div><h2>{drawing?'Dibujar zona':'Zonas del potrero'}</h2><p className="intrap-muted text-xs">{zones.length} registradas · {dirty?'Cambios sin guardar':'Configuración guardada'}</p></div>{!drawing&&<button className="app-button-secondary" disabled={busy||calculating} onClick={()=>begin()}><Plus size={16}/> Agregar</button>}</div>
         {drawing?<div className="intrap-form">
           <label>Nombre<input value={form.nombre} maxLength={100} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Ej.: Bajo del norte"/></label>
-          <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k} disabled={k==='ambiente'&&!catalog.length}>{v}</option>)}</select></label>
-          {form.tipo==='ambiente'&&<label>Ambiente de la región<select value={form.ambiente_id} onChange={e=>setForm({...form,ambiente_id:e.target.value})}><option value="">Seleccionar ambiente</option>{catalog.map(c=><option value={c.id} key={c.id}>{c.nombre}</option>)}</select></label>}
+          <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k} disabled={k==='ambiente'&&!selectableCatalog.length}>{v}</option>)}</select></label>
+          {form.tipo==='ambiente'&&<label>Ambiente de la región<select value={form.ambiente_id} onChange={e=>setForm({...form,ambiente_id:e.target.value})}><option value="">Seleccionar ambiente</option>{selectableCatalog.map(c=><option value={c.id} key={c.id}>{c.nombre}</option>)}</select></label>}
           {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">La tasa depende de la curva regional elegida; esta etiqueta no agrega un coeficiente.</small></label>}
           {form.tipo==='inaccesible'&&<><label>Inaccesible desde<input type="date" value={form.desde} onChange={e=>setForm({...form,desde:e.target.value})}/></label><label>Hasta (opcional, inclusive)<input type="date" min={form.desde} value={form.hasta??''} onChange={e=>setForm({...form,hasta:e.target.value})}/></label></>}
           <p className="intrap-muted text-xs">Marcá al menos tres puntos dentro del límite. Los ambientes pueden compartir bordes, pero no superponerse. Las sombras y restricciones sí pueden cruzar ambientes.</p>
