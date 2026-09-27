@@ -21,3 +21,16 @@
 @media(max-width:1050px){.intrap-workspace{grid-template-columns:1fr}.intrap-map{height:420px}.intrap-zone-list{max-height:260px}}
 @media(max-width:900px){.intrap-metrics{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.intrap-header{align-items:flex-start;flex-direction:column;gap:10px}.intrap-metrics{grid-template-columns:1fr 1fr}.intrap-metric{padding:14px}.intrap-metric strong{font-size:23px}.intrap-bottom-grid{grid-template-columns:1fr;gap:0}.intrap-map{height:340px}.intrap-map-hint{font-size:10px;white-space:normal;width:max-content}.intrap-editor,.intrap-section{padding:17px}}
+.intrap-water .intrap-editor-heading{flex-wrap:wrap}
+.intrap-water-period{display:flex;align-items:end;gap:18px;flex-wrap:wrap;margin:20px 0 14px;font-size:12px}
+.intrap-water-period label{display:grid;gap:7px}.intrap-water-period select{border:1px solid var(--border,#3d5144);border-radius:8px;padding:8px 12px;background:#142119;color:#eee5d7;color-scheme:dark}
+.intrap-water-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.intrap-water-metrics>div{background:#77958212;border:1px solid #77958233;border-radius:10px;padding:16px}
+.intrap-water-metrics span{display:block;font-size:12px;color:#b9c8b7}.intrap-water-metrics strong{display:block;font-size:24px;margin-top:8px}.intrap-water-metrics small{font-size:12px;font-weight:400}
+.intrap-water-caption{font-size:12px;line-height:1.7;margin-top:12px;color:#bac4b5}
+.intrap-water-zones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}
+.intrap-water-zone{min-width:0;border:1px solid #77958244;border-radius:12px;padding:18px;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.intrap-water-zone h3{font-size:15px;font-weight:650}.intrap-water-zone p{margin-top:10px}.intrap-water-zone .intrap-editor-heading>span{font-size:11px;color:#b9c8b7}
+.intrap-water-result{display:grid;gap:5px;margin-top:15px;padding-top:12px;border-top:1px solid #77958244}
+.intrap-water-result b{color:#c4d8b7}.intrap-water-method{margin-top:20px;font-size:12px;line-height:1.8}.intrap-water-method summary{cursor:pointer;font-weight:600}.intrap-water-method p{margin-top:10px}.intrap-water-method .intrap-sources{display:grid;text-decoration:none}.intrap-water-method a{text-decoration:underline}.intrap-water-method li p{margin-top:3px}
+@media(max-width:750px){.intrap-water-zones{grid-template-columns:1fr}.intrap-water-metrics{grid-template-columns:1fr}.intrap-water .intrap-badge{white-space:normal}}

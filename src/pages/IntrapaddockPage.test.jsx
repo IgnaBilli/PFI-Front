@@ -43,6 +43,21 @@ it('a conflicting save retains pending edits and never starts a stock job',async
  expect(createStockEstimate).not.toHaveBeenCalled();
 });
 
+it('saves dated field observations without restoring pasture curves',async()=>{
+ const user=userEvent.setup();renderPage();
+ await user.click(await screen.findByRole('button',{name:'Agregar'}));
+ await user.type(screen.getByLabelText('Nombre'),'Bajo observado');
+ await user.selectOptions(screen.getByLabelText(/Posición del relieve/),'bajo');
+ await user.selectOptions(screen.getByLabelText(/Estado del suelo observado/),'anegado');
+ const day=screen.getByLabelText('Fecha de observación').value;
+ await user.click(screen.getByRole('button',{name:'Usar todo el potrero'}));
+ await user.click(screen.getByRole('button',{name:'Aceptar zona'}));
+ api.post.mockImplementation(async(_path,body)=>({...initial,version:4,configuracion:{zonas:body.zonas}}));
+ await user.click(screen.getByRole('button',{name:'Guardar y actualizar cálculo'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledOnce());
+ expect(api.post.mock.calls[0][1].zonas[0]).toMatchObject({tipo:'ambiente',posicion:'bajo',observacion_hidrica:{estado:'anegado',fecha:day}});
+});
+
 it('restoring a historical version preserves relief and geometry without resubmitting retired curves',async()=>{
  const user=userEvent.setup();
  const legacy={id:'old',nombre:'Bajo sur',tipo:'ambiente',posicion:'bajo',ambiente_id:'malezal',curva_mensual:Array(12).fill(99),geom};

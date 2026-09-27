@@ -4,6 +4,8 @@ import {MapContainer, TileLayer, GeoJSON, CircleMarker, Polygon, Polyline, Toolt
 import {ArrowLeft, Layers, Plus, Save, Undo2, Pencil, Trash2, LoaderCircle} from 'lucide-react';
 import {api} from '../services/api.js';
 import {createStockEstimate} from '../services/analyticsService.js';
+import IntrapaddockWater from './IntrapaddockWater.jsx';
+import {WATER_STATES} from './intrapaddockWaterOptions.js';
 import './intrapaddock.css';
 
 const TYPES={ambiente:'Ambiente productivo',aguada:'Aguada',sombra:'Sombra',inaccesible:'Sector inaccesible'};
@@ -12,7 +14,7 @@ const COLORS={ambiente:'#d9b66e',aguada:'#64b6e8',sombra:'#75bc8d',inaccesible:'
 const LEVELS={alta:'#e6b668',media:'#acd2bc',baja:'#789ab4'};
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const fmt=(value,digits=1)=>value==null?'Sin datos':Number(value).toLocaleString('es-AR',{maximumFractionDigits:digits});
-const zoneInput=z=>({id:z.id,nombre:z.nombre,tipo:z.tipo,geom:z.geom,...(z.tipo==='ambiente'?{posicion:Object.hasOwn(POSITIONS,z.posicion)?z.posicion:'sin_definir'}:{}),...(z.tipo==='inaccesible'?{desde:z.desde,hasta:z.hasta??null}:{})});
+const zoneInput=z=>({id:z.id,nombre:z.nombre,tipo:z.tipo,geom:z.geom,...(z.tipo==='ambiente'?{posicion:Object.hasOwn(POSITIONS,z.posicion)?z.posicion:'sin_definir',...(z.observacion_hidrica?{observacion_hidrica:z.observacion_hidrica}:{})}:{}),...(z.tipo==='inaccesible'?{desde:z.desde,hasta:z.hasta??null}:{})});
 const blank=()=>({id:null,nombre:'',tipo:'ambiente',posicion:'sin_definir',desde:today(),hasta:''});
 
 function MapControls({geom,drawing,onPoint}) {
@@ -54,9 +56,10 @@ export default function IntrapaddockPage() {
     if(!form.nombre.trim())return setError('Asignale un nombre a la zona.');
     if(vertices.length<3)return setError('Marcá al menos tres puntos en el mapa.');
     if(form.tipo==='inaccesible'&&(!form.desde||(form.hasta&&form.hasta<form.desde)))return setError('Revisá las fechas del sector inaccesible.');
+    if(form.tipo==='ambiente'&&form.observacion_hidrica&&(!form.observacion_hidrica.fecha||form.observacion_hidrica.fecha>today()))return setError('La observación necesita una fecha de hoy o anterior.');
     const z={id:form.id??crypto.randomUUID(),nombre:form.nombre.trim(),tipo:form.tipo,
       geom:{type:'Polygon',coordinates:[[...vertices,vertices[0]]]},
-      ...(form.tipo==='ambiente'?{posicion:form.posicion}:{}),
+      ...(form.tipo==='ambiente'?{posicion:form.posicion,...(form.observacion_hidrica?{observacion_hidrica:form.observacion_hidrica}:{})}:{}),
       ...(form.tipo==='inaccesible'?{desde:form.desde,hasta:form.hasta||null}:{})};
     setZones(old=>[...old.filter(item=>item.id!==z.id),z]);setDirty(true);setDrawing(false);setVertices([]);setError('');
   }
@@ -132,6 +135,7 @@ export default function IntrapaddockPage() {
           <label>Nombre<input value={form.nombre} maxLength={100} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Ej.: Bajo del norte"/></label>
           <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
           {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Loma, media loma y bajo describen el terreno. Conservan el crecimiento base del potrero.</small></label>}
+          {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Registrá lo que viste a campo. No cambia el stock ni marca la zona como inaccesible.</small></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
           {form.tipo==='inaccesible'&&<><label>Inaccesible desde<input type="date" value={form.desde} onChange={e=>setForm({...form,desde:e.target.value})}/></label><label>Hasta (opcional, inclusive)<input type="date" min={form.desde} value={form.hasta??''} onChange={e=>setForm({...form,hasta:e.target.value})}/></label></>}
           <p className="intrap-muted text-xs">Marcá al menos tres puntos dentro del límite. Los ambientes pueden compartir bordes, pero no superponerse. Las sombras y restricciones sí pueden cruzar ambientes.</p>
           <div className="intrap-form-actions"><button className="app-button-ghost" onClick={()=>setVertices(v=>v.slice(0,-1))}><Undo2 size={14}/> Último punto</button><button className="app-button-ghost" onClick={()=>setVertices(paddock.geom.coordinates[0].slice(0,-1))}>Usar todo el potrero</button></div>
@@ -145,6 +149,7 @@ export default function IntrapaddockPage() {
       </aside>
     </div>
     <section className="app-panel intrap-section"><h2>Distribución por zonas</h2><p className="intrap-muted">Distribución de la referencia base según la superficie. El relieve no aplica un coeficiente de crecimiento.</p><div className="intrap-table-wrap"><table><thead><tr><th>Ambiente</th><th>Superficie</th><th>Del potrero</th><th>Aporte al promedio</th></tr></thead><tbody>{analysis.configuracion.zonas.filter(z=>z.tipo==='ambiente').map(z=><tr key={z.id}><td>{z.nombre}<small>{POSITIONS[z.posicion]??'Sin definir'}</small></td><td>{fmt(z.superficie_ha)} ha</td><td>{fmt(z.porcentaje)} %</td><td>{fmt(z.aporte_mensual_kg_ms_ha_dia[month],2)} kg MS/ha/día</td></tr>)}<tr><td>Sin clasificar<small>Referencia regional</small></td><td>{fmt(analysis.superficie_sin_clasificar_ha)} ha</td><td>{fmt(100*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha)} %</td><td>{fmt(analysis.referencia_base_mensual[month]*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha,2)} kg MS/ha/día</td></tr></tbody></table></div></section>
+    <IntrapaddockWater analysis={analysis} summary={summary} pending={pending} stale={data.sin_actualizar||data.requiere_revision}/>
     <div className="intrap-bottom-grid">
       <section className="app-panel intrap-section"><h2>Oferta y acceso al pasto</h2><dl className="intrap-facts"><div><dt>Stock forrajero estimado total</dt><dd>{fmt(summary?.stock_estimado_total_kg_ms,0)} kg MS</dd></div><div><dt>Stock accesible aproximado</dt><dd>{fmt(summary?.stock_accesible_proxy_kg_ms,0)} kg MS</dd></div><div><dt>Crecimiento en sectores accesibles</dt><dd>{fmt(summary?.crecimiento_accesible_total_kg_ms_dia)} kg MS/día</dd></div></dl><p className="intrap-muted text-xs">{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p>{summary?.stock_fecha&&<p className="intrap-muted text-xs mt-2">Saldo guardado al {summary.stock_fecha}. {summary.pendiente_actualizar?'El balance requiere actualización.':''}</p>}</section>
       <section className="app-panel intrap-section"><h2>Lectura para el manejo</h2><ul className="intrap-alerts">{analysis.advertencias.map(t=><li key={t}>{t}</li>)}</ul><p className="intrap-muted text-xs">La cercanía ayuda a identificar posibles concentraciones de uso. No prueba sobrepastoreo ni reemplaza una recorrida.</p></section>
