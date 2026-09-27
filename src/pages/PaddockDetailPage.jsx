@@ -516,6 +516,10 @@ export default function PaddockDetailPage() {
         </div>
       </section>
 
+      <section className="app-panel mt-4 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between" aria-label="Análisis intrapotrero">
+        <div><h2 className="font-display text-lg font-bold text-sand-100">Ambientes y acceso al pasto</h2><p className="mt-1 text-xs text-sand-500">Identificá ambientes, aguadas, sombras y sectores inaccesibles para ajustar la lectura del potrero.</p></div>
+        <Link to={`/potreros/${paddock.id}/intrapotrero`} className="app-button-secondary shrink-0">Analizar intrapotrero</Link>
+      </section>
       <section className="mt-4" aria-labelledby="actions-title">
         <div className="app-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>

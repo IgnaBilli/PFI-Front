@@ -9,6 +9,7 @@ const SummaryPage = lazy(() => import('./pages/SummaryPage.jsx'));
 const CattlePage = lazy(() => import('./pages/CattlePage.jsx'));
 const PaddocksPage = lazy(() => import('./pages/PaddocksPage.jsx'));
 const PaddockDetailPage = lazy(() => import('./pages/PaddockDetailPage.jsx'));
+const IntrapaddockPage = lazy(() => import('./pages/IntrapaddockPage.jsx'));
 const TrasladoPage = lazy(() => import('./pages/TrasladoPage.jsx'));
 const OnboardingEstanciaPage = lazy(() => import('./pages/OnboardingEstanciaPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/mapa" element={<MapPage />} />
           <Route path="/potreros" element={<PaddocksPage />} />
           <Route path="/potreros/:paddockId" element={<PaddockDetailPage />} />
+          <Route path="/potreros/:paddockId/intrapotrero" element={<IntrapaddockPage />} />
           <Route path="/ganado" element={<CattlePage />} />
           <Route path="/traslado" element={<TrasladoPage />} />
           <Route path="*" element={<NotFoundPage />} />
