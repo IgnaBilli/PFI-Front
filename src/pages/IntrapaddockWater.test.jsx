@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import {expect,it} from 'vitest';
 import Water from './IntrapaddockWater.jsx';
 
-const analysis={agua_relieve:{clima:{disponible:true,periodos:[
+const analysis={configuracion:{zonas:[{id:'a',nombre:'Loma norte',tipo:'ambiente',observacion_hidrica:{estado:'seco',fecha:'2026-09-10'}}]},agua_relieve:{clima:{disponible:true,periodos:[
   {dias:7,desde:'2026-09-20',hasta:'2026-09-26',precipitacion_mm:7},
   {dias:30,desde:'2026-08-28',hasta:'2026-09-26',precipitacion_mm:120}
 ]}}};
@@ -13,6 +13,8 @@ it('shows rainfall for the selected complete period without claiming soil reserv
   expect(screen.getByText('120')).toBeInTheDocument();
   expect(screen.getByText(/2026-08-28 → 2026-09-26/)).toBeInTheDocument();
   expect(screen.getByText(/no cuánta agua queda en el suelo/)).toBeInTheDocument();
+  expect(screen.getByText('Seco')).toBeInTheDocument();
+  expect(screen.getByText('Última observación: 10/09/2026')).toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText('Período de lluvia'),'7');
   expect(screen.getByText('7')).toBeInTheDocument();
   expect(screen.getByText(/2026-09-20 → 2026-09-26/)).toBeInTheDocument();

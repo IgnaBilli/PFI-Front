@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {WATER_STATES} from './intrapaddockWaterOptions.js';
 
 const fmt=value=>Number(value).toLocaleString('es-AR',{maximumFractionDigits:1});
 
@@ -7,6 +8,7 @@ export default function IntrapaddockWater({analysis,stale}) {
   const climate=analysis.agua_relieve?.clima;
   const period=climate?.periodos?.find(p=>p.dias===days);
   const available=climate?.disponible&&Number.isFinite(period?.precipitacion_mm);
+  const zones=analysis.configuracion?.zonas?.filter(z=>z.tipo==='ambiente')??[];
   return <section className="app-panel intrap-section intrap-rain" aria-label="Lluvia en el potrero">
     <div className="intrap-editor-heading">
       <h2>Lluvia en el potrero</h2>
@@ -18,5 +20,12 @@ export default function IntrapaddockWater({analysis,stale}) {
       <p className="intrap-muted text-xs">{period.desde} → {period.hasta} · Estimación de Open-Meteo</p>
       <p className="intrap-rain-note">Indica cuánto llovió, no cuánta agua queda en el suelo.</p>
     </>:<p className="intrap-muted intrap-rain-note">Lluvia no disponible para este período.</p>}
+    {zones.length>0&&<div className="intrap-soil-observations">
+      <h3>Estado del suelo <span>· observado a campo</span></h3>
+      <ul>{zones.map(zone=>{
+        const observation=zone.observacion_hidrica;
+        return <li key={zone.id}><strong>{zone.nombre}</strong><div><span>{WATER_STATES[observation?.estado]??'Sin observación cargada'}</span>{observation?.fecha&&<small>Última observación: {observation.fecha.split('-').reverse().join('/')}</small>}</div></li>;
+      })}</ul>
+    </div>}
   </section>;
 }
