@@ -5,7 +5,7 @@ import {ArrowLeft, Layers, Plus, Save, Undo2, Pencil, Trash2, LoaderCircle} from
 import {api} from '../services/api.js';
 import {createStockEstimate} from '../services/analyticsService.js';
 import IntrapaddockWater from './IntrapaddockWater.jsx';
-import IntrapaddockClimate from './IntrapaddockClimate.jsx';
+import IntrapaddockAdvisories from './IntrapaddockAdvisories.jsx';
 import {WATER_STATES} from './intrapaddockWaterOptions.js';
 import './intrapaddock.css';
 
@@ -34,6 +34,13 @@ export default function IntrapaddockPage() {
   const [form,setForm]=useState(blank),[vertices,setVertices]=useState([]),[drawing,setDrawing]=useState(false);
   const [layers,setLayers]=useState({ambiente:true,aguada:true,sombra:true,inaccesible:true,preferencia:false});
   const mounted=useRef(true);
+  const soilInput=useRef(null),focusSoil=useRef(false);
+  useEffect(()=>{
+    if(drawing&&focusSoil.current&&soilInput.current){
+      soilInput.current.scrollIntoView?.({behavior:'smooth',block:'center'});
+      soilInput.current.focus({preventScroll:true});focusSoil.current=false;
+    }
+  },[drawing]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   useEffect(()=>{
     let cancelled=false;
@@ -115,7 +122,7 @@ export default function IntrapaddockPage() {
       <Metric title="Carga sobre área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
     </div>
     <p className="intrap-muted text-xs mb-4">{pending?'Cambios pendientes: los indicadores corresponden a lo guardado.':`Análisis al ${analysis.fecha} · Zonas declaradas.`}</p>
-    <IntrapaddockClimate analysis={analysis} summary={summary} stale={data.sin_actualizar||data.requiere_revision}/>
+    <IntrapaddockAdvisories analysis={analysis} stale={data.sin_actualizar||data.requiere_revision} disabled={pending||busy||calculating} onEditSoil={zone=>{focusSoil.current=true;begin(zone);}}/>
     <div className="intrap-workspace">
       <section className="intrap-map-panel" aria-label="Mapa intrapotrero">
         <div className="intrap-layer-bar"><Layers size={16}/>{Object.entries({...TYPES,preferencia:'Preferencia estimada'}).map(([k,label])=><label key={k}><input type="checkbox" checked={layers[k]} onChange={e=>setLayers({...layers,[k]:e.target.checked})}/>{label}</label>)}</div>
@@ -142,7 +149,7 @@ export default function IntrapaddockPage() {
           <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
           {form.tipo==='aguada'&&<p className="intrap-muted text-xs">Dibujá solo el agua, sin incluir pasto alrededor. Se excluye del área pastoreable y sigue siendo un recurso en el mapa.</p>}
           {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Loma, media loma y bajo describen el terreno. Conservan el crecimiento base del potrero.</small></label>}
-          {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Registrá lo que viste a campo. No cambia el stock ni marca la zona como inaccesible.</small></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
+          {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select ref={soilInput} value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Registrá lo que viste a campo. No cambia el stock ni marca la zona como inaccesible.</small></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
           {form.tipo==='inaccesible'&&<><label>Inaccesible desde<input type="date" value={form.desde} onChange={e=>setForm({...form,desde:e.target.value})}/></label><label>Hasta (opcional, inclusive)<input type="date" min={form.desde} value={form.hasta??''} onChange={e=>setForm({...form,hasta:e.target.value})}/></label></>}
           <p className="intrap-muted text-xs">Marcá al menos tres puntos dentro del límite. Los ambientes pueden compartir bordes, pero no superponerse. Las sombras y restricciones sí pueden cruzar ambientes.</p>
           <div className="intrap-form-actions"><button className="app-button-ghost" onClick={()=>setVertices(v=>v.slice(0,-1))}><Undo2 size={14}/> Último punto</button><button className="app-button-ghost" onClick={()=>setVertices(paddock.geom.coordinates[0].slice(0,-1))}>Usar todo el potrero</button></div>

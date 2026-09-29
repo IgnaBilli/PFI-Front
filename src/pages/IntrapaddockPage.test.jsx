@@ -76,3 +76,22 @@ it('editing saved zones preserves relief and geometry without resubmitting retir
  await waitFor(()=>expect(api.post).toHaveBeenCalledOnce());
  expect(api.post.mock.calls[0][1].zonas).toEqual([{id:'old',nombre:'Bajo sur',tipo:'ambiente',posicion:'bajo',geom}]);
 });
+
+it('soil advisory opens and focuses the existing observation field without changing saved geometry',async()=>{
+ const user=userEvent.setup();
+ const saved={id:'z1',nombre:'Loma test',tipo:'ambiente',posicion:'loma',geom,aporte_mensual_kg_ms_ha_dia:Array(12).fill(10)};
+ const response={...structuredClone(initial),configuracion:{zonas:[saved]},analisis:{...structuredClone(initial.analisis),configuracion:{zonas:[saved]}}};
+ api.get.mockImplementation(async path=>path.endsWith('/intrapotrero')?structuredClone(response):{nombre:'Norte',geom});
+ renderPage();
+ await user.click(await screen.findByRole('button',{name:'Actualizar estado del suelo de Loma test'}));
+ expect(screen.getByLabelText(/Estado del suelo observado/)).toHaveFocus();
+ expect(screen.getByLabelText('Nombre')).toHaveValue('Loma test');
+ expect(screen.getByRole('button',{name:'Actualizar estado del suelo de Loma test'})).toBeDisabled();
+ await user.selectOptions(screen.getByLabelText(/Estado del suelo observado/),'seco');
+ await user.click(screen.getByRole('button',{name:'Aceptar zona'}));
+ api.post.mockImplementation(async(_path,body)=>({...response,version:2,configuracion:{zonas:body.zonas}}));
+ await user.click(screen.getByRole('button',{name:'Guardar y actualizar cálculo'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledOnce());
+ expect(api.post.mock.calls[0][1].zonas[0].geom).toEqual(geom);
+ expect(api.post.mock.calls[0][1].zonas[0].observacion_hidrica.estado).toBe('seco');
+});
