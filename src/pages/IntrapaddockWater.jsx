@@ -39,7 +39,7 @@ export default function IntrapaddockWater({analysis,summary,pending,stale}) {
       <p>Se usan ubicación del potrero, lluvia y ET₀ de los últimos días completos, polígonos y relieve declarados. Una observación del suelo se muestra con su fecha y no se presenta como actual en días posteriores.</p>
       <p>No se infieren textura, reserva útil, drenaje ni napa a partir del nombre del relieve. Faltan esos datos y una respuesta de la vegetación validada localmente para calcular un porcentaje de cambio del crecimiento. Lluvia − ET₀ es un indicador climático, no un balance completo del suelo.</p>
       <p>La lectura por relieve toma evidencia de la Pampa Deprimida como orientación. Las fuentes del NEA aportan ensayos locales y producción por recurso; no validan un coeficiente único para toda la región.</p>
-      <p>El stock cargado y el crecimiento vigente se conservan. No se añade otro multiplicador por clima. Agua y sombra siguen siendo recursos de manejo; un sector inaccesible modifica solamente la oferta accesible.</p>
+      <p>El stock total y el crecimiento base se conservan; el clima no añade un multiplicador. El agua sin pasto y los sectores inaccesibles vigentes se excluyen del área pastoreable y de la oferta accesible, sin duplicar superposiciones. Agua y sombra siguen ubicando recursos.</p>
       <ul className="intrap-sources">{water?.fuentes?.map(source=><li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.titulo}</a><p className="intrap-muted">{source.alcance}</p></li>)}</ul>
     </details>
   </section>;

@@ -8,7 +8,7 @@ import IntrapaddockWater from './IntrapaddockWater.jsx';
 import {WATER_STATES} from './intrapaddockWaterOptions.js';
 import './intrapaddock.css';
 
-const TYPES={ambiente:'Ambiente productivo',aguada:'Aguada',sombra:'Sombra',inaccesible:'Sector inaccesible'};
+const TYPES={ambiente:'Ambiente productivo',aguada:'Agua (sin pasto)',sombra:'Sombra',inaccesible:'Sector inaccesible'};
 const POSITIONS={sin_definir:'Sin definir',loma:'Loma',media_loma:'Media loma',bajo:'Bajo'};
 const COLORS={ambiente:'#d9b66e',aguada:'#64b6e8',sombra:'#75bc8d',inaccesible:'#ec8d74'};
 const LEVELS={alta:'#e6b668',media:'#acd2bc',baja:'#789ab4'};
@@ -105,7 +105,7 @@ export default function IntrapaddockPage() {
       </div>
       <div className="intrap-overview-meta">
         <p>{summary?.stock_fecha?`Stock al ${summary.stock_fecha}.`:'Sin saldo disponible.'} {summary?.pendiente_actualizar?'Balance pendiente de actualizar.':''}</p>
-        <details><summary>Cómo se estima el acceso</summary><p>{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p><p>Se supone pasto uniforme por superficie. La parte inaccesible no se descuenta nuevamente del stock total. MS: materia seca.</p></details>
+        <details><summary>Cómo se estima el acceso</summary><p>{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p><p>Se excluyen agua sin pasto y restricciones vigentes, sin duplicar superposiciones. Es un reparto por superficie; no corrige el stock total estimado por el balance general. MS: materia seca.</p></details>
       </div>
     </section>
     <div className="intrap-metrics intrap-secondary-metrics" aria-label="Superficie y oferta del potrero">
@@ -139,6 +139,7 @@ export default function IntrapaddockPage() {
         {drawing?<div className="intrap-form">
           <label>Nombre<input value={form.nombre} maxLength={100} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Ej.: Bajo del norte"/></label>
           <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+          {form.tipo==='aguada'&&<p className="intrap-muted text-xs">Dibujá solo el agua, sin incluir pasto alrededor. Se excluye del área pastoreable y sigue siendo un recurso en el mapa.</p>}
           {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Loma, media loma y bajo describen el terreno. Conservan el crecimiento base del potrero.</small></label>}
           {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Registrá lo que viste a campo. No cambia el stock ni marca la zona como inaccesible.</small></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
           {form.tipo==='inaccesible'&&<><label>Inaccesible desde<input type="date" value={form.desde} onChange={e=>setForm({...form,desde:e.target.value})}/></label><label>Hasta (opcional, inclusive)<input type="date" min={form.desde} value={form.hasta??''} onChange={e=>setForm({...form,hasta:e.target.value})}/></label></>}
