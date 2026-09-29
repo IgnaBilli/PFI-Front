@@ -58,18 +58,16 @@ it('saves dated field observations without restoring pasture curves',async()=>{
  expect(api.post.mock.calls[0][1].zonas[0]).toMatchObject({tipo:'ambiente',posicion:'bajo',observacion_hidrica:{estado:'anegado',fecha:day}});
 });
 
-it('restoring a historical version preserves relief and geometry without resubmitting retired curves',async()=>{
+it('editing saved zones preserves relief and geometry without resubmitting retired curves',async()=>{
  const user=userEvent.setup();
  const legacy={id:'old',nombre:'Bajo sur',tipo:'ambiente',posicion:'bajo',ambiente_id:'malezal',curva_mensual:Array(12).fill(99),geom};
- api.get.mockImplementation(async path=>path.endsWith('/historial')?{versiones:[{id:1,vigente_desde:'2026-09-26',cantidad_zonas:1,configuracion:{zonas:[legacy]}}]}:path.endsWith('/intrapotrero')?{...structuredClone(initial),analisis:{...initial.analisis,catalogo:[]}}:{nombre:'Norte',geom});
+ api.get.mockImplementation(async path=>path.endsWith('/intrapotrero')?{...structuredClone(initial),version:1,configuracion:{zonas:[legacy]}}:{nombre:'Norte',geom});
  api.post.mockImplementation(async(_path,body)=>({...initial,version:4,configuracion:{zonas:body.zonas}}));
  renderPage();
  await user.click(await screen.findByRole('button',{name:'Agregar'}));
  expect(screen.getByLabelText('Tipo')).toHaveValue('ambiente');
  expect(screen.queryByLabelText('Ambiente de la región')).not.toBeInTheDocument();
  await user.click(screen.getByRole('button',{name:'Cancelar'}));
- await user.click(screen.getByRole('button',{name:'Ver versiones'}));
- await user.click(await screen.findByRole('button',{name:'Cargar para restaurar'}));
  await user.click(screen.getByRole('button',{name:'Editar Bajo sur'}));
  expect(screen.getByLabelText(/Posición del relieve/)).toHaveValue('bajo');
  expect(screen.queryByLabelText('Ambiente de la región')).not.toBeInTheDocument();

@@ -32,7 +32,6 @@ export default function IntrapaddockPage() {
   const [busy,setBusy]=useState(false),[calculating,setCalculating]=useState(false),[dirty,setDirty]=useState(false);
   const [form,setForm]=useState(blank),[vertices,setVertices]=useState([]),[drawing,setDrawing]=useState(false);
   const [layers,setLayers]=useState({ambiente:true,aguada:true,sombra:true,inaccesible:true,preferencia:false});
-  const [history,setHistory]=useState(null);
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   useEffect(()=>{
@@ -80,15 +79,11 @@ export default function IntrapaddockPage() {
     try {
       const d=await api.post(`/potrero/${paddockId}/intrapotrero`,{version_base:data.version??0,zonas:zones.map(zoneInput)});
       if(!mounted.current)return;
-      setData(d);setZones(d.configuracion.zonas);setDirty(false);setHistory(null);
+      setData(d);setZones(d.configuracion.zonas);setDirty(false);
       setNotice('Zonas guardadas. Actualizando el balance desde hoy…');
       await recalculate();
     } catch(e) {if(mounted.current)setError(e.message);}
     finally {if(mounted.current)setBusy(false);}
-  }
-  async function showHistory() {
-    try {setHistory((await api.get(`/potrero/${paddockId}/intrapotrero/historial`)).versiones.reverse());}
-    catch(e){setError(e.message);}
   }
   if(loading)return <div className="app-page" role="status"><LoaderCircle className="animate-spin"/> Cargando análisis del potrero…</div>;
   if(!data||!paddock)return <div className="app-page"><Link to={`/potreros/${paddockId}`}>Volver al potrero</Link><p role="alert" className="app-error mt-4">{error||'No se pudo cargar el análisis.'}</p><button className="app-button-secondary mt-4" onClick={()=>window.location.reload()}>Reintentar</button></div>;
@@ -97,7 +92,6 @@ export default function IntrapaddockPage() {
     <Link className="app-button-ghost -ml-3 text-xs" to={`/potreros/${paddockId}`} onClick={e=>{if(pending&&!window.confirm('Hay cambios sin guardar. ¿Querés salir y descartarlos?'))e.preventDefault();}}><ArrowLeft size={16}/> Volver a {paddock.nombre}</Link>
     <header className="intrap-header">
       <div><p className="intrap-eyebrow">LECTURA DEL TERRITORIO · {analysis.region_nombre}</p><h1>Análisis intrapotrero</h1><p className="intrap-muted">Conectá los ambientes, el acceso al pasto y los recursos de {paddock.nombre}.</p></div>
-      <span className="intrap-badge">{data.version?`Versión ${data.version}`:'Sin clasificar'}</span>
     </header>
     {error&&<p className="app-error" role="alert">{error}</p>}
     {notice&&<p className="intrap-message" role="status">{notice}</p>}
@@ -109,7 +103,7 @@ export default function IntrapaddockPage() {
       <Metric title="Crecimiento utilizable" value={fmt(summary?.crecimiento_utilizable_total_kg_ms_dia)} unit="kg MS/día"/>
       <Metric title="Carga en área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
     </div>
-    <p className="intrap-muted text-xs mb-4">{pending?'Los indicadores y el mapa de preferencia corresponden a la última versión guardada.':`Análisis al ${analysis.fecha}. Zonas declaradas por el usuario.`}</p>
+    <p className="intrap-muted text-xs mb-4">{pending?'Los indicadores y el mapa de preferencia corresponden a la configuración guardada.':`Análisis al ${analysis.fecha}. Zonas declaradas por el usuario.`}</p>
     <div className="intrap-workspace">
       <section className="intrap-map-panel" aria-label="Mapa intrapotrero">
         <div className="intrap-layer-bar"><Layers size={16}/>{Object.entries({...TYPES,preferencia:'Preferencia estimada'}).map(([k,label])=><label key={k}><input type="checkbox" checked={layers[k]} onChange={e=>setLayers({...layers,[k]:e.target.checked})}/>{label}</label>)}</div>
@@ -143,7 +137,7 @@ export default function IntrapaddockPage() {
         </div>:<>
           <div className="intrap-zone-list">{zones.length===0?<p className="intrap-empty">Empezá por los ambientes que conocés. Lo que no clasifiques conserva la estimación regional.</p>:zones.map(z=><div className="intrap-zone" key={z.id}><i style={{background:COLORS[z.tipo]}}/><div><strong>{z.nombre}</strong><p>{TYPES[z.tipo]}{z.superficie_ha!=null?` · ${fmt(z.superficie_ha)} ha`:' · pendiente de calcular'}</p>{z.tipo==='ambiente'&&<p>{POSITIONS[z.posicion]??'Sin definir'}</p>}{z.tipo==='inaccesible'&&<p>{z.desde} → {z.hasta||'hasta nuevo aviso'} · {z.desde<=analysis.fecha&&(!z.hasta||analysis.fecha<=z.hasta)?'Vigente':'Fuera de vigencia'}</p>}</div><button disabled={busy||calculating} aria-label={`Editar ${z.nombre}`} onClick={()=>begin(z)}><Pencil size={15}/></button><button disabled={busy||calculating} aria-label={`Quitar ${z.nombre}`} onClick={()=>{setZones(old=>old.filter(x=>x.id!==z.id));setDirty(true);}}><Trash2 size={15}/></button></div>)}</div>
           <button className="app-button-primary w-full mt-4" disabled={busy||calculating||!dirty||data.sin_actualizar} onClick={save}>{busy||calculating?<LoaderCircle size={16} className="animate-spin"/>:<Save size={16}/>} {busy||calculating?'Actualizando…':'Guardar y actualizar cálculo'}</button>
-          <p className="intrap-muted text-xs mt-3">Las zonas describen el relieve y el acceso al pasto, sin ajustar el crecimiento base. Las versiones anteriores se conservan.</p>
+          <p className="intrap-muted text-xs mt-3">Las zonas describen el relieve y el acceso al pasto, sin ajustar el crecimiento base.</p>
           {!dirty&&!data.sin_actualizar&&(!summary||summary.pendiente_actualizar)&&<button className="app-button-secondary w-full mt-3" disabled={busy||calculating} onClick={recalculate}>Actualizar balance</button>}
         </>}
       </aside>
@@ -154,9 +148,8 @@ export default function IntrapaddockPage() {
       <section className="app-panel intrap-section"><h2>Oferta y acceso al pasto</h2><dl className="intrap-facts"><div><dt>Stock forrajero estimado total</dt><dd>{fmt(summary?.stock_estimado_total_kg_ms,0)} kg MS</dd></div><div><dt>Stock accesible aproximado</dt><dd>{fmt(summary?.stock_accesible_proxy_kg_ms,0)} kg MS</dd></div><div><dt>Crecimiento en sectores accesibles</dt><dd>{fmt(summary?.crecimiento_accesible_total_kg_ms_dia)} kg MS/día</dd></div></dl><p className="intrap-muted text-xs">{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p>{summary?.stock_fecha&&<p className="intrap-muted text-xs mt-2">Saldo guardado al {summary.stock_fecha}. {summary.pendiente_actualizar?'El balance requiere actualización.':''}</p>}</section>
       <section className="app-panel intrap-section"><h2>Lectura para el manejo</h2><ul className="intrap-alerts">{analysis.advertencias.map(t=><li key={t}>{t}</li>)}</ul><p className="intrap-muted text-xs">La cercanía ayuda a identificar posibles concentraciones de uso. No prueba sobrepastoreo ni reemplaza una recorrida.</p></section>
     </div>
-    <section className="app-panel intrap-section"><div className="intrap-editor-heading"><div><h2>Fuentes y trazabilidad</h2><p className="intrap-muted">{data.guardado_en?`Último registro: ${new Date(data.guardado_en).toLocaleString('es-AR')}`:'Todavía no hay una configuración registrada.'}</p></div><button className="app-button-secondary" onClick={showHistory}>Ver versiones</button></div>
+    <section className="app-panel intrap-section"><div className="intrap-editor-heading"><div><h2>Fuentes y metodología</h2><p className="intrap-muted">{data.guardado_en?`Último registro: ${new Date(data.guardado_en).toLocaleString('es-AR')}`:'Todavía no hay una configuración registrada.'}</p></div></div>
       <details className="mt-4"><summary>Cómo se obtiene esta estimación</summary><p className="intrap-muted mt-3">Los ambientes y recursos los declara el usuario. Las superficies se calculan sobre los polígonos. Se conserva la referencia base y la anomalía DMP del potrero completo. Las zonas no seleccionan curvas de pastizales ni modifican el crecimiento por relieve. El mapa de preferencia representa cercanía a recursos, no píxeles de NDVI ni seguimiento animal.</p><p className="intrap-muted mt-3">El análisis de accesibilidad es una aproximación por superficie. Las fuentes permiten interpretar los ambientes y recursos; no se usan para asignar coeficientes por relieve en esta pantalla.</p><ul className="intrap-sources"><li><a href="https://www.agro.uba.ar/users/garbulsk/Curso_ut_archivos/clases/09%20-%20Pastizales%20templado%20h%C3%BAmedos.pdf" target="_blank" rel="noreferrer">FAUBA: comunidades y productividad de la Pampa Deprimida</a></li><li><a href="https://repositorio.inta.gob.ar/handle/20.500.12123/9558" target="_blank" rel="noreferrer">INTA: comportamiento y distribución animal en pastoreo extensivo</a></li><li><a href="https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html" target="_blank" rel="noreferrer">Copernicus: alcance de Sentinel-2</a></li></ul></details>
-      {history&&<div className="intrap-history">{history.length===0?<p>Sin versiones anteriores.</p>:history.map(v=><div key={v.id}><span>Versión {v.id} · desde {v.vigente_desde} · {v.cantidad_zonas} zonas</span><button className="app-button-ghost" disabled={busy||calculating||drawing} onClick={()=>{setZones(v.configuracion.zonas);setDirty(true);setNotice('Versión cargada para revisar. Guardar creará una nueva versión desde hoy.');}}>Cargar para restaurar</button></div>)}</div>}
     </section>
   </div>;
 }
