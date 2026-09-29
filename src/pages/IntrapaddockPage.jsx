@@ -105,7 +105,6 @@ export default function IntrapaddockPage() {
       </div>
       <div className="intrap-overview-meta">
         <p>{summary?.stock_fecha?`Stock al ${summary.stock_fecha}.`:'Sin saldo disponible.'} {summary?.pendiente_actualizar?'Balance pendiente de actualizar.':''}</p>
-        <details><summary>Cómo se estima el acceso</summary><p>{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p><p>Se excluyen agua sin pasto y restricciones vigentes, sin duplicar superposiciones. Es un reparto por superficie; no corrige el stock total estimado por el balance general. MS: materia seca.</p></details>
       </div>
     </section>
     <div className="intrap-metrics intrap-secondary-metrics" aria-label="Superficie y oferta del potrero">
