@@ -41,3 +41,9 @@
 @media(max-width:750px){.intrap-water-zones{grid-template-columns:1fr}.intrap-water-metrics{grid-template-columns:1fr}.intrap-water .intrap-badge{white-space:normal}}
 .intrap-disclosure{font-size:13px}.intrap-section{padding:16px;margin-top:12px}.intrap-table-wrap{margin-top:10px}.intrap-table-wrap td{padding:9px 12px}.intrap-editor{padding:16px}.intrap-zone{padding:10px 0}.intrap-layer-bar{padding:10px 12px}.intrap-legend{padding:9px 12px}
 @media(max-width:600px){.intrap-primary-metrics{grid-template-columns:1fr;gap:8px}.intrap-primary-metrics .intrap-metric{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;padding:12px 14px}.intrap-primary-metrics .intrap-metric-value{grid-column:2;grid-row:1/3;margin:0;justify-content:flex-end;max-width:155px}.intrap-primary-metrics .intrap-metric p{grid-column:1;margin-top:3px}.intrap-primary-metrics .intrap-metric strong{font-size:25px}.intrap-secondary-metrics .intrap-metric{padding:10px}.intrap-overview-meta{margin-bottom:10px}.intrap-water-metrics{grid-template-columns:1fr}.intrap-water-metrics>div{display:flex;align-items:center;justify-content:space-between;gap:10px}.intrap-water-metrics strong{margin:0;white-space:nowrap;font-size:21px}.intrap-header{margin:8px 0 14px}.intrap-header h1{font-size:26px}}
+.intrap-climate { margin-bottom: 1rem; }
+.intrap-climate-badge { border: 1px solid #d9b66e66; border-radius: 1rem; padding: .2rem .6rem; font-size: .7rem; color: #d9b66e; }
+.intrap-climate-values { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: .75rem; margin: .8rem 0; }
+.intrap-climate-values>div { display: flex; flex-direction: column; gap: .3rem; }
+.intrap-climate-values span,.intrap-climate-values small { font-size: .75rem; font-weight: 400; }
+.intrap-climate-values strong { font-size: 1.2rem; }

@@ -5,6 +5,7 @@ import {ArrowLeft, Layers, Plus, Save, Undo2, Pencil, Trash2, LoaderCircle} from
 import {api} from '../services/api.js';
 import {createStockEstimate} from '../services/analyticsService.js';
 import IntrapaddockWater from './IntrapaddockWater.jsx';
+import IntrapaddockClimate from './IntrapaddockClimate.jsx';
 import {WATER_STATES} from './intrapaddockWaterOptions.js';
 import './intrapaddock.css';
 
@@ -114,6 +115,7 @@ export default function IntrapaddockPage() {
       <Metric title="Carga sobre área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
     </div>
     <p className="intrap-muted text-xs mb-4">{pending?'Cambios pendientes: los indicadores corresponden a lo guardado.':`Análisis al ${analysis.fecha} · Zonas declaradas.`}</p>
+    <IntrapaddockClimate analysis={analysis} summary={summary} stale={data.sin_actualizar||data.requiere_revision}/>
     <div className="intrap-workspace">
       <section className="intrap-map-panel" aria-label="Mapa intrapotrero">
         <div className="intrap-layer-bar"><Layers size={16}/>{Object.entries({...TYPES,preferencia:'Preferencia estimada'}).map(([k,label])=><label key={k}><input type="checkbox" checked={layers[k]} onChange={e=>setLayers({...layers,[k]:e.target.checked})}/>{label}</label>)}</div>
@@ -153,7 +155,7 @@ export default function IntrapaddockPage() {
         </>}
       </aside>
     </div>
-    <section className="app-panel intrap-section"><h2>Distribución por zonas</h2><p className="intrap-muted">Distribución de la referencia base según la superficie. El relieve no aplica un coeficiente de crecimiento.</p><div className="intrap-table-wrap"><table><thead><tr><th>Ambiente</th><th>Superficie</th><th>Del potrero</th><th>Aporte al promedio</th></tr></thead><tbody>{analysis.configuracion.zonas.filter(z=>z.tipo==='ambiente').map(z=><tr key={z.id}><td>{z.nombre}<small>{POSITIONS[z.posicion]??'Sin definir'}</small></td><td>{fmt(z.superficie_ha)} ha</td><td>{fmt(z.porcentaje)} %</td><td>{fmt(z.aporte_mensual_kg_ms_ha_dia[month],2)} kg MS/ha/día</td></tr>)}<tr><td>Sin clasificar<small>Referencia regional</small></td><td>{fmt(analysis.superficie_sin_clasificar_ha)} ha</td><td>{fmt(100*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha)} %</td><td>{fmt(analysis.referencia_base_mensual[month]*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha,2)} kg MS/ha/día</td></tr></tbody></table></div></section>
+    <section className="app-panel intrap-section"><h2>Distribución por zonas</h2><p className="intrap-muted">Distribución de la referencia base según la superficie. El relieve no aplica un coeficiente de crecimiento.</p><div className="intrap-table-wrap"><table><thead><tr><th>Ambiente</th><th>Superficie</th><th>Del potrero</th><th>Aporte al promedio</th></tr></thead><tbody>{analysis.configuracion.zonas.filter(z=>z.tipo==='ambiente').map(z=><tr key={z.id}><td>{z.nombre}<small>{POSITIONS[z.posicion]??'Sin definir'}</small></td><td>{fmt(z.superficie_ha)} ha</td><td>{fmt(z.porcentaje)} %</td><td>{fmt(z.aporte_mensual_kg_ms_ha_dia[month],2)} kg MS/ha/día</td></tr>)}<tr><td>Sin clasificar<small>Referencia regional</small></td><td>{fmt(analysis.superficie_sin_clasificar_ha)} ha</td><td>{fmt(100*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha)} %</td><td>{fmt(analysis.referencia_base_mensual[month]==null?null:analysis.referencia_base_mensual[month]*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha,2)} kg MS/ha/día</td></tr></tbody></table></div></section>
     <IntrapaddockWater analysis={analysis} stale={data.sin_actualizar||data.requiere_revision}/>
 
   </div>;
