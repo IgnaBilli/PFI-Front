@@ -12,10 +12,10 @@ it('switches climate windows without claiming soil moisture and distributes only
  const user=userEvent.setup();render(<Water analysis={analysis} summary={{crecimiento_utilizable_total_kg_ms_dia:100}}/>);
  expect(screen.getByText(/Aporte base distribuido: 40 kg MS\/día/)).toBeInTheDocument();
  expect(screen.getByText(/Última observación, no confirma el estado actual/)).toHaveTextContent('2026-09-10');
- expect(screen.getByText(/La lluvia superó la demanda/)).toBeInTheDocument();
+ expect(screen.getByText(/Lluvia mayor que demanda/)).toBeInTheDocument();
  await user.selectOptions(screen.getByLabelText('Período climático'),'7');
- expect(screen.getByText(/La demanda atmosférica superó la lluvia/)).toBeInTheDocument();
- await user.click(screen.getByText('Qué datos se usan, qué falta y documentos de respaldo'));
+ expect(screen.getByText(/Demanda mayor que lluvia/)).toBeInTheDocument();
+ await user.click(screen.getByText('Datos, límites y fuentes'));
  expect(screen.getByRole('link',{name:'FAO-56'})).toHaveAttribute('href','https://www.fao.org/4/x0490e/x0490e0e.htm');
 });
 it('keeps missing weather distinct from zero and hides stale stock allocation',()=>{

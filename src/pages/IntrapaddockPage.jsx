@@ -91,19 +91,30 @@ export default function IntrapaddockPage() {
   return <div className="app-page intrap-page">
     <Link className="app-button-ghost -ml-3 text-xs" to={`/potreros/${paddockId}`} onClick={e=>{if(pending&&!window.confirm('Hay cambios sin guardar. ¿Querés salir y descartarlos?'))e.preventDefault();}}><ArrowLeft size={16}/> Volver a {paddock.nombre}</Link>
     <header className="intrap-header">
-      <div><p className="intrap-eyebrow">LECTURA DEL TERRITORIO · {analysis.region_nombre}</p><h1>Análisis intrapotrero</h1><p className="intrap-muted">Conectá los ambientes, el acceso al pasto y los recursos de {paddock.nombre}.</p></div>
+      <div><p className="intrap-eyebrow">{paddock.nombre} · {analysis.region_nombre}</p><h1>Análisis intrapotrero</h1><p className="intrap-muted">Pasto disponible, ambientes y recursos.</p></div>
     </header>
     {error&&<p className="app-error" role="alert">{error}</p>}
     {notice&&<p className="intrap-message" role="status">{notice}</p>}
     {data.sin_actualizar&&<p className="app-error" role="status">{data.advertencia} Fecha del análisis: {analysis.fecha}.</p>}
     {data.limites_modificados&&<p className="app-error">Los límites del potrero cambiaron. Revisá o quitá las zonas anteriores y volvé a guardar. El ajuste ambiental anterior está suspendido.</p>}
-    <div className="intrap-metrics" aria-label="Superficie y oferta del potrero">
+    <section className="intrap-overview" aria-label="Oferta y acceso al pasto">
+      <div className="intrap-primary-metrics">
+        <Metric title="Stock forrajero total" value={fmt(summary?.stock_estimado_total_kg_ms,0)} unit="kg MS" note="Estimado en todo el potrero"/>
+        <Metric title="Stock accesible" value={fmt(summary?.stock_accesible_proxy_kg_ms,0)} unit="kg MS" note="Aproximado por superficie accesible" accent/>
+        <Metric title="Crecimiento accesible" value={fmt(summary?.crecimiento_accesible_total_kg_ms_dia)} unit="kg MS/día" note="En sectores accesibles" accent/>
+      </div>
+      <div className="intrap-overview-meta">
+        <p>{summary?.stock_fecha?`Stock al ${summary.stock_fecha}.`:'Sin saldo disponible.'} {summary?.pendiente_actualizar?'Balance pendiente de actualizar.':''}</p>
+        <details><summary>Cómo se estima el acceso</summary><p>{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p><p>Se supone pasto uniforme por superficie. La parte inaccesible no se descuenta nuevamente del stock total. MS: materia seca.</p></details>
+      </div>
+    </section>
+    <div className="intrap-metrics intrap-secondary-metrics" aria-label="Superficie y oferta del potrero">
       <Metric title="Superficie total" value={fmt(analysis.superficie_total_ha)} unit="ha"/>
       <Metric title="Superficie pastoreable" value={fmt(analysis.superficie_pastoreable_ha)} unit="ha"/>
-      <Metric title="Crecimiento utilizable" value={fmt(summary?.crecimiento_utilizable_total_kg_ms_dia)} unit="kg MS/día"/>
-      <Metric title="Carga en área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
+      <Metric title="Crecimiento utilizable total" value={fmt(summary?.crecimiento_utilizable_total_kg_ms_dia)} unit="kg MS/día"/>
+      <Metric title="Carga sobre área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
     </div>
-    <p className="intrap-muted text-xs mb-4">{pending?'Los indicadores y el mapa de preferencia corresponden a la configuración guardada.':`Análisis al ${analysis.fecha}. Zonas declaradas por el usuario.`}</p>
+    <p className="intrap-muted text-xs mb-4">{pending?'Cambios pendientes: los indicadores corresponden a lo guardado.':`Análisis al ${analysis.fecha} · Zonas declaradas.`}</p>
     <div className="intrap-workspace">
       <section className="intrap-map-panel" aria-label="Mapa intrapotrero">
         <div className="intrap-layer-bar"><Layers size={16}/>{Object.entries({...TYPES,preferencia:'Preferencia estimada'}).map(([k,label])=><label key={k}><input type="checkbox" checked={layers[k]} onChange={e=>setLayers({...layers,[k]:e.target.checked})}/>{label}</label>)}</div>
@@ -137,20 +148,17 @@ export default function IntrapaddockPage() {
         </div>:<>
           <div className="intrap-zone-list">{zones.length===0?<p className="intrap-empty">Empezá por los ambientes que conocés. Lo que no clasifiques conserva la estimación regional.</p>:zones.map(z=><div className="intrap-zone" key={z.id}><i style={{background:COLORS[z.tipo]}}/><div><strong>{z.nombre}</strong><p>{TYPES[z.tipo]}{z.superficie_ha!=null?` · ${fmt(z.superficie_ha)} ha`:' · pendiente de calcular'}</p>{z.tipo==='ambiente'&&<p>{POSITIONS[z.posicion]??'Sin definir'}</p>}{z.tipo==='inaccesible'&&<p>{z.desde} → {z.hasta||'hasta nuevo aviso'} · {z.desde<=analysis.fecha&&(!z.hasta||analysis.fecha<=z.hasta)?'Vigente':'Fuera de vigencia'}</p>}</div><button disabled={busy||calculating} aria-label={`Editar ${z.nombre}`} onClick={()=>begin(z)}><Pencil size={15}/></button><button disabled={busy||calculating} aria-label={`Quitar ${z.nombre}`} onClick={()=>{setZones(old=>old.filter(x=>x.id!==z.id));setDirty(true);}}><Trash2 size={15}/></button></div>)}</div>
           <button className="app-button-primary w-full mt-4" disabled={busy||calculating||!dirty||data.sin_actualizar} onClick={save}>{busy||calculating?<LoaderCircle size={16} className="animate-spin"/>:<Save size={16}/>} {busy||calculating?'Actualizando…':'Guardar y actualizar cálculo'}</button>
-          <p className="intrap-muted text-xs mt-3">Las zonas describen el relieve y el acceso al pasto, sin ajustar el crecimiento base.</p>
+          <p className="intrap-muted text-xs mt-3">El relieve no cambia el crecimiento base.</p>
           {!dirty&&!data.sin_actualizar&&(!summary||summary.pendiente_actualizar)&&<button className="app-button-secondary w-full mt-3" disabled={busy||calculating} onClick={recalculate}>Actualizar balance</button>}
         </>}
       </aside>
     </div>
     <section className="app-panel intrap-section"><h2>Distribución por zonas</h2><p className="intrap-muted">Distribución de la referencia base según la superficie. El relieve no aplica un coeficiente de crecimiento.</p><div className="intrap-table-wrap"><table><thead><tr><th>Ambiente</th><th>Superficie</th><th>Del potrero</th><th>Aporte al promedio</th></tr></thead><tbody>{analysis.configuracion.zonas.filter(z=>z.tipo==='ambiente').map(z=><tr key={z.id}><td>{z.nombre}<small>{POSITIONS[z.posicion]??'Sin definir'}</small></td><td>{fmt(z.superficie_ha)} ha</td><td>{fmt(z.porcentaje)} %</td><td>{fmt(z.aporte_mensual_kg_ms_ha_dia[month],2)} kg MS/ha/día</td></tr>)}<tr><td>Sin clasificar<small>Referencia regional</small></td><td>{fmt(analysis.superficie_sin_clasificar_ha)} ha</td><td>{fmt(100*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha)} %</td><td>{fmt(analysis.referencia_base_mensual[month]*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha,2)} kg MS/ha/día</td></tr></tbody></table></div></section>
     <IntrapaddockWater analysis={analysis} summary={summary} pending={pending} stale={data.sin_actualizar||data.requiere_revision}/>
-    <div className="intrap-bottom-grid">
-      <section className="app-panel intrap-section"><h2>Oferta y acceso al pasto</h2><dl className="intrap-facts"><div><dt>Stock forrajero estimado total</dt><dd>{fmt(summary?.stock_estimado_total_kg_ms,0)} kg MS</dd></div><div><dt>Stock accesible aproximado</dt><dd>{fmt(summary?.stock_accesible_proxy_kg_ms,0)} kg MS</dd></div><div><dt>Crecimiento en sectores accesibles</dt><dd>{fmt(summary?.crecimiento_accesible_total_kg_ms_dia)} kg MS/día</dd></div></dl><p className="intrap-muted text-xs">{summary?.nota_stock_accesible??'Guardá las zonas y actualizá el balance para ver las estimaciones.'}</p>{summary?.stock_fecha&&<p className="intrap-muted text-xs mt-2">Saldo guardado al {summary.stock_fecha}. {summary.pendiente_actualizar?'El balance requiere actualización.':''}</p>}</section>
-      <section className="app-panel intrap-section"><h2>Lectura para el manejo</h2><ul className="intrap-alerts">{analysis.advertencias.map(t=><li key={t}>{t}</li>)}</ul><p className="intrap-muted text-xs">La cercanía ayuda a identificar posibles concentraciones de uso. No prueba sobrepastoreo ni reemplaza una recorrida.</p></section>
-    </div>
+    <details className="app-panel intrap-section intrap-disclosure"><summary>Lectura para el manejo</summary><ul className="intrap-alerts">{analysis.advertencias.map(t=><li key={t}>{t}</li>)}</ul><p className="intrap-muted text-xs">La cercanía sugiere uso potencial; no confirma sobrepastoreo.</p></details>
     <section className="app-panel intrap-section"><div className="intrap-editor-heading"><div><h2>Fuentes y metodología</h2><p className="intrap-muted">{data.guardado_en?`Último registro: ${new Date(data.guardado_en).toLocaleString('es-AR')}`:'Todavía no hay una configuración registrada.'}</p></div></div>
       <details className="mt-4"><summary>Cómo se obtiene esta estimación</summary><p className="intrap-muted mt-3">Los ambientes y recursos los declara el usuario. Las superficies se calculan sobre los polígonos. Se conserva la referencia base y la anomalía DMP del potrero completo. Las zonas no seleccionan curvas de pastizales ni modifican el crecimiento por relieve. El mapa de preferencia representa cercanía a recursos, no píxeles de NDVI ni seguimiento animal.</p><p className="intrap-muted mt-3">El análisis de accesibilidad es una aproximación por superficie. Las fuentes permiten interpretar los ambientes y recursos; no se usan para asignar coeficientes por relieve en esta pantalla.</p><ul className="intrap-sources"><li><a href="https://www.agro.uba.ar/users/garbulsk/Curso_ut_archivos/clases/09%20-%20Pastizales%20templado%20h%C3%BAmedos.pdf" target="_blank" rel="noreferrer">FAUBA: comunidades y productividad de la Pampa Deprimida</a></li><li><a href="https://repositorio.inta.gob.ar/handle/20.500.12123/9558" target="_blank" rel="noreferrer">INTA: comportamiento y distribución animal en pastoreo extensivo</a></li><li><a href="https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html" target="_blank" rel="noreferrer">Copernicus: alcance de Sentinel-2</a></li></ul></details>
     </section>
   </div>;
 }
-function Metric({title,value,unit}) {return <div className="app-panel intrap-metric"><span>{title}</span><strong>{value}</strong><small>{unit}</small></div>;}
+function Metric({title,value,unit,note,accent=false}) {return <div className={`app-panel intrap-metric${accent?' intrap-metric-accent':''}`}><span>{title}</span><div className="intrap-metric-value"><strong>{value}</strong><small>{unit}</small></div>{note&&<p>{note}</p>}</div>;}
