@@ -1,4 +1,4 @@
-import { Beef, ChartNoAxesCombined, LogOut, Map, LandPlot, Menu, X } from 'lucide-react';
+import { Beef, ChartNoAxesCombined, LogOut, Map, LandPlot, Menu, X, GitBranch } from 'lucide-react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -9,6 +9,7 @@ const navigation = [
   { to: '/mapa', label: 'Mapa', icon: Map },
   { to: '/potreros', label: 'Potreros', icon: LandPlot },
   { to: '/ganado', label: 'Ganado', icon: Beef },
+  { to: '/rotacion', label: 'Rotación', icon: GitBranch },
 ];
 
 export default function DashboardLayout() {

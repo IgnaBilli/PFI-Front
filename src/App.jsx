@@ -6,6 +6,7 @@ import { RequireAuth, RequireEstancia, RequireNoEstancia } from './components/Ro
 const AuthPage = lazy(() => import('./pages/AuthPage.jsx'));
 const MapPage = lazy(() => import('./pages/MapPage.jsx'));
 const SummaryPage = lazy(() => import('./pages/SummaryPage.jsx'));
+const RotationPage = lazy(() => import('./pages/RotationPage.jsx'));
 const CattlePage = lazy(() => import('./pages/CattlePage.jsx'));
 const PaddocksPage = lazy(() => import('./pages/PaddocksPage.jsx'));
 const PaddockDetailPage = lazy(() => import('./pages/PaddockDetailPage.jsx'));
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/potreros" element={<PaddocksPage />} />
           <Route path="/potreros/:paddockId" element={<PaddockDetailPage />} />
           <Route path="/potreros/:paddockId/intrapotrero" element={<IntrapaddockPage />} />
+          <Route path="/rotacion" element={<RotationPage />} />
           <Route path="/ganado" element={<CattlePage />} />
           <Route path="/traslado" element={<TrasladoPage />} />
           <Route path="*" element={<NotFoundPage />} />
