@@ -39,6 +39,7 @@ import { formatShortDate } from '../utils/format.js';
 import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import PaddockUseControl from '../components/PaddockUseControl.jsx';
+import StockCalculationNotice from '../components/StockCalculationNotice.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
 import StockTwoDays from '../components/StockTwoDays.jsx';
 import NutritionAmount from '../components/NutritionAmount.jsx';
@@ -271,7 +272,7 @@ export default function PaddockDetailPage() {
         return [...current.filter((item) => forageEstimateKey(item) !== resultKey), result];
       });
     } catch (error) {
-      setForageGenError(error.message || 'No se pudo calcular el Stock utilizable.');
+      setForageGenError(error);
     } finally {
       forageRequestRef.current = false;
       setForageGenLoading(false);
@@ -289,7 +290,7 @@ export default function PaddockDetailPage() {
         setForageHistory(current => [...current.filter(item => forageEstimateKey(item) !== forageEstimateKey(result)), result]);
       }
     }).catch(error => {
-      if (!cancelled) setForageGenError(error.message);
+      if (!cancelled) setForageGenError(error);
     }).finally(() => {
       if (!cancelled) { forageRequestRef.current = false; setForageGenLoading(false); }
     });
@@ -522,8 +523,8 @@ export default function PaddockDetailPage() {
         <Link to={`/potreros/${paddock.id}/intrapotrero`} className="app-button-secondary shrink-0">Analizar intrapotrero</Link>
       </section>
       <section className="mt-4" aria-labelledby="actions-title">
-        <PaddockUseControl id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
-        <div className="app-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="app-panel p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 id="actions-title" className="font-display text-lg font-bold text-sand-100">Acciones del potrero</h2>
             <p className="mt-1 text-xs text-sand-500">Actualizá estimaciones, incorporá ganado o prepará un traslado.</p>
@@ -544,9 +545,15 @@ export default function PaddockDetailPage() {
             </button>
           </div>
         </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h3 className="text-sm font-semibold text-sand-100">Uso del potrero</h3><p className="mt-1 text-xs text-sand-500">Desactivalo para dejar de recibir ganado y reorganizar los animales desde Rotación.</p></div>
+          <PaddockUseControl className="shrink-0 sm:text-right" id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
+        </div>
+        </div>
         {forageGenLoading && <p className="mt-3 text-xs text-sand-500">Se consultan escenas actuales e históricas. El proceso puede demorar varios minutos.</p>}
         {!nutrition && <p className="mt-3 text-xs text-warning-400">Sin animales registrados se calcula con consumo cero. Si hay ganado o movimientos históricos, calculá la demanda DMI para estimar su consumo.</p>}
-        <InlineError>{forageGenError || dmiError}</InlineError>
+        <StockCalculationNotice error={forageGenError} />
+        <InlineError>{dmiError}</InlineError>
       </section>
 
       <section className="mt-4 grid gap-4 lg:grid-cols-2" aria-label="Stock utilizable y demanda nutricional">

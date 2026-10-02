@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import ConfirmDialog from './ConfirmDialog';
 
-export default function PaddockUseControl({ id, name, enabled = true, animals = 0, onChanged, disabled = false }) {
+export default function PaddockUseControl({ id, name, enabled = true, animals = 0, onChanged, disabled = false, className = 'mt-3' }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function save() {
     setBusy(true); setError('');
@@ -11,7 +11,7 @@ export default function PaddockUseControl({ id, name, enabled = true, animals = 
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
-  return <div className="mt-3 text-xs">
+  return <div className={`${className} text-xs`}>
     {!enabled && <p className="mb-2 text-warning-400">Fuera de uso · no recibe ganado. {animals > 0 && <Link className="underline" to="/rotacion">Reorganizar {animals} animales</Link>}</p>}
     <button type="button" className="app-button-secondary text-xs" disabled={disabled || busy} onClick={() => setOpen(true)}>{enabled ? 'Desactivar potrero' : 'Reactivar potrero'}</button>
     {error && <p role="alert" className="app-error mt-2">{error}</p>}
