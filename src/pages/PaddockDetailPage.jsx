@@ -38,6 +38,7 @@ import { dailyStockPoints } from '../utils/stockHistory.js';
 import { formatShortDate } from '../utils/format.js';
 import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
+import PaddockUseControl from '../components/PaddockUseControl.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
 import StockTwoDays from '../components/StockTwoDays.jsx';
 import NutritionAmount from '../components/NutritionAmount.jsx';
@@ -521,6 +522,7 @@ export default function PaddockDetailPage() {
         <Link to={`/potreros/${paddock.id}/intrapotrero`} className="app-button-secondary shrink-0">Analizar intrapotrero</Link>
       </section>
       <section className="mt-4" aria-labelledby="actions-title">
+        <PaddockUseControl id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
         <div className="app-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
             <h2 id="actions-title" className="font-display text-lg font-bold text-sand-100">Acciones del potrero</h2>
@@ -536,7 +538,7 @@ export default function PaddockDetailPage() {
               {dmiLoading ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Calculator size={16} aria-hidden="true" />}
               Recalcular demanda
             </button>
-            <button type="button" onClick={() => setAddingCattle(true)} disabled={mutating} className="app-button-primary text-xs">
+            <button type="button" onClick={() => setAddingCattle(true)} disabled={mutating || paddock.enabledForCattle === false} className="app-button-primary text-xs">
               {mutating ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
               Agregar ganado
             </button>

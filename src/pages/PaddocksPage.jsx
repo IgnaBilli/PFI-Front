@@ -16,6 +16,7 @@ import { withAnimalCounts } from '../services/mappers.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
 import { polygonToViewBoxPoints } from '../utils/geo.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
+import PaddockUseControl from '../components/PaddockUseControl.jsx';
 
 // Silueta real del potrero en SVG (sin depender de tiles de mapa): conserva
 // la forma real de sus coordenadas, coloreada según el estado de pasto.
@@ -52,7 +53,7 @@ function PaddockShapeIcon({ paddock, color }) {
 
 export default function PaddocksPage() {
   const { estanciaId } = useAuth();
-  const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
+  const { paddocks, loading: paddocksLoading, error: paddocksError, reload: reloadPaddocks } = usePaddocks(estanciaId);
   const {
     cattle,
     loading: cattleLoading,
@@ -194,7 +195,7 @@ export default function PaddocksPage() {
                       <span
                         className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold"
                         style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
-                        {analyticsLoading ? 'Actualizando' : details.status}
+                        {paddock.enabledForCattle === false ? 'Fuera de uso' : analyticsLoading ? 'Actualizando' : details.status}
                       </span>
                     </div>
 
@@ -229,10 +230,11 @@ export default function PaddocksPage() {
                     <button
                       type="button"
                       onClick={() => setAddingToPaddock(paddock)}
-                      disabled={mutating}
+                      disabled={mutating || paddock.enabledForCattle === false}
                       className="app-button-secondary w-full text-xs disabled:opacity-50">
                       <Plus size={14} aria-hidden="true" /> Agregar ganado
                     </button>
+                    <PaddockUseControl id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={paddock.animals} onChanged={reloadPaddocks}/>
                   </div>
                 </article>
               );

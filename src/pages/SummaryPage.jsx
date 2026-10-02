@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom';
 import usePaddocks from '../hooks/usePaddocks.js';
 import useCattle from '../hooks/useCattle.js';
+import useRotation from '../hooks/useRotation.js';
 import usePaddockAnalytics, { buildPaddockStatus } from '../hooks/usePaddockAnalytics.js';
 import useEstanciaAnaliticas from '../hooks/useEstanciaAnaliticas.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -80,6 +81,9 @@ function ForageDistributionList({ rows }) {
 
 export default function SummaryPage() {
   const { estanciaId, estancia } = useAuth();
+  const rotation = useRotation(estanciaId);
+  const rotationRecommendations = rotation.data?.recommendations ?? [];
+  const rotationOrigins = new Set(rotationRecommendations.map(r => r.origin));
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
   const { cattle, loading: cattleLoading, error: cattleError } = useCattle(estanciaId);
   const paddocksWithCounts = withAnimalCounts(paddocks, cattle);
@@ -102,7 +106,7 @@ export default function SummaryPage() {
 
   const loading = paddocksLoading || cattleLoading;
 
-  const activePaddocks = paddocksWithCounts.filter((p) => p.active);
+  const activePaddocks = paddocksWithCounts.filter((p) => p.active && p.enabledForCattle !== false);
   const alertPaddocks = paddocksWithCounts.filter(
     (p) =>
       (dataById[p.id]?.recommendation?.prioridad ?? dataById[p.id]?.recommendation?.tipo) ===
@@ -111,8 +115,9 @@ export default function SummaryPage() {
   const recommendationPaddocks = paddocksWithCounts.filter(
     (p) => dataById[p.id]?.recommendation && !alertPaddocks.includes(p)
   );
-  const attentionPaddocks = [...alertPaddocks, ...recommendationPaddocks];
-  const recommendationsCount = alertPaddocks.length + recommendationPaddocks.length;
+  const attentionPaddocks = [...alertPaddocks, ...recommendationPaddocks].filter(p => !rotationOrigins.has(p.id));
+  const recommendationsCount = attentionPaddocks.length + rotationRecommendations.length;
+  const attentionLoading = analyticsLoading || rotation.loading;
 
   const cargaAnimalSegments = (analiticas?.distribucionCargaAnimal ?? []).map((row) => {
     const label = CATEGORY_API_TO_UI[row.categoria] ?? row.categoria;
@@ -188,13 +193,26 @@ export default function SummaryPage() {
               Recomendaciones que requieren revisión en tus potreros.
             </p>
           </div>
-          {!analyticsLoading && (
+          {!attentionLoading && (
             <span className="text-xs font-semibold text-sand-300">
               {recommendationsCount} {recommendationsCount === 1 ? 'pendiente' : 'pendientes'}
             </span>
           )}
         </div>
-        {analyticsLoading ? (
+        {rotation.error && <p role="alert" className="app-error mx-5 my-3">No se pudieron comprobar las rotaciones. <Link to="/rotacion" className="underline">Revisar Rotación</Link></p>}
+        {rotation.data?.partial && <p className="px-5 py-3 text-xs text-warning-400">Rotación tiene datos pendientes de actualizar; las recomendaciones pueden estar incompletas. <Link to="/rotacion" className="underline">Actualizar en Rotación</Link></p>}
+        {rotationRecommendations.length > 0 && <div className="grid gap-px bg-sand-100/10 sm:grid-cols-2">
+          {rotationRecommendations.map(r => <Link key={r.origin} to={`/rotacion#potrero-${r.origin}`} className="group flex items-start gap-3 bg-forest-800 px-5 py-4 hover:bg-forest-700">
+            <ArrowLeftRight size={18} className="mt-1 shrink-0 text-warning-400" aria-hidden="true"/>
+            <span className="min-w-0 flex-1"><strong className="block text-sm text-white">{r.name} · {r.reason === 'FUERA_USO' ? 'Vaciar potrero fuera de uso' : 'Rotación recomendada'}</strong>
+              <span className="mt-1 block text-xs text-warning-400">{r.reason === 'FUERA_USO' ? `Redistribuir los ${r.remove} animales.` : `Retirar aproximadamente ${r.remove} animales.`}</span>
+              {r.destinations.length > 0 && <span className="mt-1 block text-xs text-sand-300">{r.destinations.map(d => `${d.quantity} a ${d.name}`).join(' · ')}</span>}
+              {r.unallocated > 0 && <span className="mt-1 block text-xs text-warning-400">{r.unallocated} sin destino sugerido{r.needsDemand ? ': falta actualizar consumo' : ': falta capacidad'}.</span>}
+              <span className="mt-2 block text-xs text-sand-300">Ver recomendación →</span>
+            </span>
+          </Link>)}
+        </div>}
+        {attentionLoading ? (
           <div className="grid gap-3 p-4 sm:grid-cols-2" aria-label="Cargando acciones">
             <LoadingBlock className="h-20" />
             <LoadingBlock className="h-20" />
@@ -204,7 +222,7 @@ export default function SummaryPage() {
             <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
             <span>No se pudieron comprobar las recomendaciones de los potreros.</span>
           </div>
-        ) : attentionPaddocks.length === 0 ? (
+        ) : attentionPaddocks.length === 0 && (rotationRecommendations.length > 0 || rotation.error || rotation.data?.partial) ? null : attentionPaddocks.length === 0 ? (
           <div className="flex items-center gap-3 px-5 py-5 text-sm text-sand-300">
             <CheckCircle2 size={18} className="shrink-0 text-brand-400" aria-hidden="true" />
             <span>No hay recomendaciones pendientes con los datos disponibles.</span>
@@ -249,7 +267,7 @@ export default function SummaryPage() {
               [cattleError ? '—' : cattle.length, 'Cabezas en el campo', Beef],
               [paddocksError ? '—' : activePaddocks.length, 'Potreros activos', LandPlot],
               [paddocksError || paddockAnalyticsError ? '—' : alertPaddocks.length, 'Alertas de carga', AlertTriangle],
-              [paddocksError || paddockAnalyticsError ? '—' : recommendationsCount, 'Recomendaciones', Lightbulb],
+              [paddocksError || paddockAnalyticsError || rotation.error || rotation.loading ? '—' : recommendationsCount, 'Recomendaciones', Lightbulb],
             ].map(([value, label, Icon]) => (
               <div key={label} className="flex min-w-0 flex-col items-start gap-2 px-3 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
                 <Icon size={17} className="shrink-0 text-sand-500" aria-hidden="true" />
@@ -304,7 +322,7 @@ export default function SummaryPage() {
                     <span
                       className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold"
                       style={{ color: details.statusColor, backgroundColor: details.statusBg }}>
-                      {analyticsLoading ? 'Cargando' : details.status}
+                      {paddock.enabledForCattle === false ? 'Fuera de uso' : analyticsLoading ? 'Cargando' : details.status}
                     </span>
                   </div>
                   <div className="mt-5 flex items-end justify-between gap-3">

@@ -276,7 +276,7 @@ export default function AddCattleModal({
                 onChange={(e) => setSelectedPaddockId(e.target.value)}
                  className="app-field">
                 <option value="">Sin potrero</option>
-                {paddocks.map((p) => (
+                {paddocks.filter(p => p.enabledForCattle !== false).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>

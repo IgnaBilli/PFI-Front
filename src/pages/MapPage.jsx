@@ -538,7 +538,7 @@ export default function MapPage() {
                   openAddCattle(paddock);
                 }}
                 aria-label={`Agregar ganado a ${selectedPaddock.name}`}
-                disabled={cattleDataIncomplete}
+                disabled={cattleDataIncomplete || selectedPaddock.enabledForCattle === false}
                 className="app-button-secondary min-h-12 w-full justify-start px-3.5 py-3 text-left disabled:opacity-50">
                 <Plus size={15} className="shrink-0 text-[var(--text-soft)]" />
                 <span>
@@ -827,12 +827,13 @@ export default function MapPage() {
                     </strong>
                     <small className="text-xs text-[var(--text-muted)]">
                       {paddock.hectares.toFixed(1)} ha · {cattleDataIncomplete ? 'ganado sin cargar' : `${paddock.animals} cabezas`}
+                      {paddock.enabledForCattle === false && ' · Fuera de uso'}
                     </small>
                   </span>
                 </button>
                 <button
                   onClick={() => openAddCattle(paddock)}
-                  disabled={mutating || cattleDataIncomplete || (editMode === 'estancia' && estanciaMode === 'edit')}
+                  disabled={mutating || cattleDataIncomplete || paddock.enabledForCattle === false || (editMode === 'estancia' && estanciaMode === 'edit')}
                   aria-label={`Agregar ganado a ${paddock.name}`}
                   title="Agregar ganado"
                   className="app-icon-button shrink-0 border-0 bg-transparent disabled:opacity-50">

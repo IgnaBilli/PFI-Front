@@ -44,7 +44,7 @@ export default function TrasladoPage() {
   const [error, setError] = useState('');
 
   const loading = paddocksLoading || cattleLoading;
-  const candidate = paddocksWithCounts.find((p) => Number(p.id) === selectedPaddockId) ?? null;
+  const candidate = paddocksWithCounts.find((p) => p.enabledForCattle !== false && Number(p.id) === selectedPaddockId) ?? null;
   const selectionIsStale = !loading && !cattleError && selectedAnimals.length !== animalIds.length;
   const originCount = new Set(selectedAnimals.map((animal) => animal.paddockId ?? 'new')).size;
   const multipleOrigins = originCount > 1;
@@ -233,7 +233,7 @@ export default function TrasladoPage() {
             </p>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {paddocksWithCounts.map((paddock) => {
+          {paddocksWithCounts.filter(p => p.enabledForCattle !== false).map((paddock) => {
             const isSelected = Number(paddock.id) === selectedPaddockId;
             const status = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
             const isOrigin = selectedAnimals.some((a) => Number(a.paddockId) === Number(paddock.id));

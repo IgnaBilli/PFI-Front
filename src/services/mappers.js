@@ -158,6 +158,7 @@ export function mapPaddockFromApi(p, animalsCount = 0) {
     hectares: Number(p.superficie_ha) || 0,
     coordinates: geoJsonPolygonToCoords(p.geom),
     active: p.activo ?? true,
+    enabledForCattle: p.habilitado_ganado == null ? true : Boolean(p.habilitado_ganado),
     animals: animalsCount,
   }
 }
