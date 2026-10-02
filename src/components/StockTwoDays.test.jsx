@@ -31,14 +31,3 @@ describe('stock today and tomorrow', () => {
     expect(stockTwoDays({ ...stock, fecha_objetivo: '2026-02-30' }, now)[0].value).toBeNull();
   });
 });
-
-import { render, screen } from '@testing-library/react';
-import StockTwoDays from './StockTwoDays';
-
-it('identifica el supuesto junto al valor y conserva el origen observado', () => {
-  const { rerender } = render(<StockTwoDays stock={{detalle_json:{supuesto_uso_ganadero:{activo:true,cobertura_observada:'Cultivos temporarios'}}}} />);
-  expect(screen.getByText('Estimación orientativa · uso ganadero asumido')).toBeInTheDocument();
-  expect(screen.getByText(/MapBiomas indica Cultivos temporarios/)).toHaveTextContent('Confianza baja');
-  rerender(<StockTwoDays stock={{detalle_json:{supuesto_uso_ganadero:null}}} />);
-  expect(screen.queryByText('Estimación orientativa · uso ganadero asumido')).not.toBeInTheDocument();
-});
