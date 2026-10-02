@@ -108,7 +108,7 @@ function computeLoadPercent(nutrition, forage, hectares) {
   return Number.isFinite(ratio) ? ratio * 100 : null;
 }
 
-export function buildPaddockStatus(entry, hectares) {
+export function buildPaddockStatus(entry, hectares, animalCount) {
   const stock = entry?.stock ?? null;
   const forage = entry?.forage ?? null;
   const nutrition = entry?.nutrition ?? null;
@@ -117,6 +117,13 @@ export function buildPaddockStatus(entry, hectares) {
   const grassValue = stock?.stock_final_central_kg_ms_ha ?? forage?.kg_materia_seca_ha;
   const grass =
     grassValue !== undefined && grassValue !== null ? `${grassValue} kg MS/ha` : 'Sin datos';
+
+  const days = stock?.detalle_json?.seguimiento_diario?.dias;
+  const savedCount = Array.isArray(days) ? days.at(-1)?.consumo?.animales_dia : undefined;
+  if (animalCount != null && savedCount != null && Number(savedCount) !== Number(animalCount)) {
+    return { ...STATUS_STYLES.empty, status: 'Actualizar datos', grass, load: 'Pendiente', loadBarWidth: '0%',
+      recommendation: 'Cambió la cantidad de ganado desde el último balance. Actualizá stock y demanda.' };
+  }
 
   const usableGrowth = Number(stock?.crecimiento_utilizable_kg_ms_ha_dia);
   const dailyConsumption = Number(stock?.consumo_diario_total_kg_ms);

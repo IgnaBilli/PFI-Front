@@ -231,7 +231,7 @@ export default function SummaryPage() {
         ) : (
           <div className="grid gap-px bg-sand-100/10 sm:grid-cols-2">
             {attentionPaddocks.map((paddock) => {
-              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares, paddock.animals);
               const isAlert = Boolean(details.alert);
               return (
                 <Link
@@ -306,7 +306,7 @@ export default function SummaryPage() {
         ) : (
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {paddocksWithCounts.map((paddock) => {
-              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares, paddock.animals);
 
               return (
                 <Link

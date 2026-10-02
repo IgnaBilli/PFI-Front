@@ -257,7 +257,7 @@ export default function PaddockDetailPage() {
 
   const latestForage = forageOverride ?? entry?.stock ?? entry?.forage ?? null;
   const nutrition = dmiOverride ?? entry?.nutrition ?? null;
-  const status = buildPaddockStatus({ ...entry, stock: latestForage, nutrition }, paddock?.hectares);
+  const status = buildPaddockStatus({ ...entry, stock: latestForage, nutrition }, paddock?.hectares, herd.length);
 
   async function handleGenerateForage() {
     if (!paddock || forageRequestRef.current) return;
@@ -551,7 +551,9 @@ export default function PaddockDetailPage() {
         </div>
         </div>
         {forageGenLoading && <p className="mt-3 text-xs text-sand-500">Se consultan escenas actuales e históricas. El proceso puede demorar varios minutos.</p>}
-        {!nutrition && <p className="mt-3 text-xs text-warning-400">Sin animales registrados se calcula con consumo cero. Si hay ganado o movimientos históricos, calculá la demanda DMI para estimar su consumo.</p>}
+        {!nutrition && <p className="mt-3 text-xs text-warning-400">{herd.length > 0
+          ? 'Todavía no se calculó la demanda del ganado asignado. Recalculá la demanda y actualizá el stock.'
+          : 'Actualmente no hay ganado asignado. El balance conserva el consumo histórico de los animales que estuvieron en el potrero.'}</p>}
         <StockCalculationNotice error={forageGenError} />
         <InlineError>{dmiError}</InlineError>
       </section>

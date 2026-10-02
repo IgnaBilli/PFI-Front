@@ -185,7 +185,7 @@ export default function PaddocksPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {paddocksWithCounts.map((paddock) => {
-              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+              const details = buildPaddockStatus(dataById[paddock.id], paddock.hectares, paddock.animals);
 
               return (
                 <article key={paddock.id} className="app-panel group overflow-hidden transition-colors hover:border-sand-100/25">

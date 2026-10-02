@@ -235,7 +235,7 @@ export default function TrasladoPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {paddocksWithCounts.filter(p => p.enabledForCattle !== false).map((paddock) => {
             const isSelected = Number(paddock.id) === selectedPaddockId;
-            const status = buildPaddockStatus(dataById[paddock.id], paddock.hectares);
+            const status = buildPaddockStatus(dataById[paddock.id], paddock.hectares, paddock.animals);
             const isOrigin = selectedAnimals.some((a) => Number(a.paddockId) === Number(paddock.id));
             const isCurrentForAll = selectedAnimals.every((a) => Number(a.paddockId) === Number(paddock.id));
 

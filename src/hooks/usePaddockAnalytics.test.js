@@ -39,6 +39,21 @@ describe('usePaddockAnalytics', () => {
 // carga = (consumo diario por animal * cantidad de animales) /
 //         (forraje estimado por ha * hectáreas)
 describe('buildPaddockStatus — carga animal', () => {
+  it('does not present an empty paddock balance as current after receiving cattle', () => {
+    const entry = { stock: { stock_final_central_kg_ms_ha: 188.8,
+      crecimiento_utilizable_kg_ms_ha_dia: 8, consumo_diario_total_kg_ms: 0,
+      detalle_json: { seguimiento_diario: { dias: [{ consumo: { animales_dia: 0 } }] } } } };
+    expect(buildPaddockStatus(entry, 52.2, 6)).toMatchObject({ status: 'Actualizar datos', load: 'Pendiente' });
+    expect(buildPaddockStatus(entry, 52.2, 0).load).toBe('0%');
+  });
+
+  it('requires a fresh balance after cattle leave, while retaining historical stock', () => {
+    const entry = { stock: { stock_final_central_kg_ms_ha: 100,
+      crecimiento_utilizable_kg_ms_ha_dia: 8, consumo_diario_total_kg_ms: 22.14,
+      detalle_json: { seguimiento_diario: { dias: [{ consumo: { animales_dia: 6 } }] } } } };
+    expect(buildPaddockStatus(entry, 3, 0)).toMatchObject({ grass: '100 kg MS/ha', load: 'Pendiente' });
+  });
+
   it('compara el consumo total diario con el crecimiento utilizable del potrero', () => {
     const result = buildPaddockStatus({
       stock: {
