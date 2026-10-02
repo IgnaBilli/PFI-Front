@@ -317,7 +317,7 @@ export default function SummaryPage() {
                     <div className="min-w-0">
                       <h3 className="truncate text-sm font-bold text-white">{paddock.name}</h3>
                       <p className="mt-1 text-xs text-sand-500">
-                        {Number(paddock.hectares).toFixed(0)} ha · {paddock.animals} cabezas
+                        {Number(paddock.hectares).toLocaleString('es-AR', { maximumFractionDigits: 2 })} ha · {paddock.animals} cabezas
                       </p>
                     </div>
                     <span

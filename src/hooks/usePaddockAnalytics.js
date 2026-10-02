@@ -120,7 +120,7 @@ export function buildPaddockStatus(entry, hectares, animalCount) {
 
   const days = stock?.detalle_json?.seguimiento_diario?.dias;
   const savedCount = Array.isArray(days) ? days.at(-1)?.consumo?.animales_dia : undefined;
-  if (animalCount != null && savedCount != null && Number(savedCount) !== Number(animalCount)) {
+  if (animalCount != null && savedCount != null && Math.abs(Number(savedCount) - Number(animalCount)) > 1e-6) {
     return { ...STATUS_STYLES.empty, status: 'Actualizar datos', grass, load: 'Pendiente', loadBarWidth: '0%',
       recommendation: 'Cambió la cantidad de ganado desde el último balance. Actualizá stock y demanda.' };
   }

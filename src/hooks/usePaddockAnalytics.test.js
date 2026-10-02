@@ -54,6 +54,13 @@ describe('buildPaddockStatus — carga animal', () => {
     expect(buildPaddockStatus(entry, 3, 0)).toMatchObject({ grass: '100 kg MS/ha', load: 'Pendiente' });
   });
 
+  it('ignores floating point summation noise in the daily herd count', () => {
+    const entry = { stock: { crecimiento_utilizable_kg_ms_ha_dia: 8,
+      consumo_diario_total_kg_ms: 88,
+      detalle_json: { seguimiento_diario: { dias: [{ consumo: { animales_dia: 11.999999999999991 } }] } } } };
+    expect(buildPaddockStatus(entry, 8.7, 12).load).toBe('126%');
+  });
+
   it('compara el consumo total diario con el crecimiento utilizable del potrero', () => {
     const result = buildPaddockStatus({
       stock: {
