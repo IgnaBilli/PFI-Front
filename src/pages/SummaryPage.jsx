@@ -117,6 +117,7 @@ export default function SummaryPage() {
   );
   const attentionPaddocks = [...alertPaddocks, ...recommendationPaddocks].filter(p => !rotationOrigins.has(p.id));
   const recommendationsCount = attentionPaddocks.length + rotationRecommendations.length;
+  const loadAlertCount = new Set([...alertPaddocks.map(p => p.id), ...rotationRecommendations.filter(r => r.reason !== 'FUERA_USO').map(r => r.origin)]).size;
   const attentionLoading = analyticsLoading || rotation.loading;
 
   const cargaAnimalSegments = (analiticas?.distribucionCargaAnimal ?? []).map((row) => {
@@ -266,7 +267,7 @@ export default function SummaryPage() {
             {[
               [cattleError ? '—' : cattle.length, 'Cabezas en el campo', Beef],
               [paddocksError ? '—' : activePaddocks.length, 'Potreros activos', LandPlot],
-              [paddocksError || paddockAnalyticsError ? '—' : alertPaddocks.length, 'Alertas de carga', AlertTriangle],
+              [paddocksError || paddockAnalyticsError || rotation.error || rotation.loading ? '—' : loadAlertCount, 'Alertas de carga', AlertTriangle],
               [paddocksError || paddockAnalyticsError || rotation.error || rotation.loading ? '—' : recommendationsCount, 'Recomendaciones', Lightbulb],
             ].map(([value, label, Icon]) => (
               <div key={label} className="flex min-w-0 flex-col items-start gap-2 px-3 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
