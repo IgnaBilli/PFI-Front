@@ -64,6 +64,7 @@ export default function CattlePage() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkBodyCondition, setBulkBodyCondition] = useState('');
 
   // Confirm dialogs
   const [confirmDelete, setConfirmDelete] = useState(null); // { id } | null
@@ -256,13 +257,20 @@ export default function CattlePage() {
 
   async function handleBulkCategoryApply() {
     if (!bulkCategory) return;
+    const condition = Number(bulkBodyCondition);
+    if (bulkCategory === 'VACA' && (!bulkBodyCondition.trim() || !Number.isFinite(condition) || condition < 1 || condition > 5)) {
+      setActionError('Ingresá la condición corporal de las vacas entre 1 y 5.');
+      return;
+    }
     setMutating(true);
     setActionError('');
     try {
-      await bulkUpdateCategory(selectedIds.map((id) => ({ id_ganado: id, categoria: bulkCategory })));
+      await bulkUpdateCategory(selectedIds.map((id) => ({ id_ganado: id, categoria: bulkCategory,
+        ...(bulkCategory === 'VACA' ? { condicion_corporal: condition } : {}) })));
       await reloadAll();
       setSelectedIds([]);
       setBulkCategory('');
+      setBulkBodyCondition('');
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setActionError('No se pudo aplicar el cambio masivo: algunos animales no existen. La operación se revirtió por completo.');
@@ -436,7 +444,7 @@ export default function CattlePage() {
             <select
               aria-label="Nueva categoría para la selección"
               value={bulkCategory}
-              onChange={(e) => setBulkCategory(e.target.value)}
+              onChange={(e) => { setBulkCategory(e.target.value); setBulkBodyCondition(''); }}
               disabled={mutating}
               className="app-field min-w-48 flex-1 sm:flex-none">
               <option value="">Cambiar Categoría...</option>
@@ -446,6 +454,12 @@ export default function CattlePage() {
                 </option>
               ))}
             </select>
+            {bulkCategory === 'VACA' && <label className="text-xs text-[var(--text-soft)]">
+              Condición corporal para la selección (1 a 5)
+              <input type="number" min="1" max="5" step="0.1" value={bulkBodyCondition}
+                onChange={(e) => setBulkBodyCondition(e.target.value)} disabled={mutating}
+                className="app-field mt-1 w-28" />
+            </label>}
             <button
               onClick={handleBulkCategoryApply}
               disabled={!bulkCategory || mutating}
@@ -515,9 +529,10 @@ export default function CattlePage() {
                   const isEditing = animal.id === editingId;
                   const isSelected = selectedIds.includes(animal.id);
                   const currentStatusOption = STATUS_OPTIONS.find((opt) => opt.value === animal.status);
+                  const availablePaddocks = paddocksWithCounts.filter(p => p.enabledForCattle !== false || String(p.id) === String(animal.paddockId));
                   const paddockOptions = animal.paddockId == null
-                    ? [{ id: '', name: 'Sin potrero' }, ...paddocksWithCounts]
-                    : paddocksWithCounts;
+                    ? [{ id: '', name: 'Sin potrero' }, ...availablePaddocks]
+                    : availablePaddocks;
                   return (
                     <tr
                       key={animal.id}

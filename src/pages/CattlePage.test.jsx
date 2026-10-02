@@ -54,6 +54,17 @@ describe('CattlePage paddock filtering', () => {
 });
 
 describe('CattlePage edit validation', () => {
+  it('requires and sends body condition for a bulk change to cows', async () => {
+    const user = userEvent.setup();
+    render(<CattlePage />, { wrapper: MemoryRouter });
+    await user.click(screen.getByRole('checkbox', {name:'Seleccionar animal NUM-7'}));
+    await user.selectOptions(screen.getByRole('combobox', {name:'Nueva categoría para la selección'}), 'VACA');
+    await user.click(screen.getByRole('button', {name:'Aplicar', exact:true}));
+    expect(cattleApi.bulkUpdateCategory).not.toHaveBeenCalled();
+    await user.type(screen.getByRole('spinbutton', {name:'Condición corporal para la selección (1 a 5)'}), '3.5');
+    await user.click(screen.getByRole('button', {name:'Aplicar', exact:true}));
+    expect(cattleApi.bulkUpdateCategory).toHaveBeenCalledWith([{id_ganado:1,categoria:'VACA',condicion_corporal:3.5}]);
+  });
   it('rejects zero weight before moving or updating an animal', async () => {
     const user = userEvent.setup();
     render(<CattlePage />, { wrapper:MemoryRouter });
