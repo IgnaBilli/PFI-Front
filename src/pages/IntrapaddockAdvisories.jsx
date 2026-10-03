@@ -27,7 +27,5 @@ export default function IntrapaddockAdvisories({analysis,stale,onEditSoil,disabl
         {onEditSoil&&<button className="app-button-secondary" disabled={disabled||stale} aria-label={`Actualizar estado del suelo de ${zone.nombre}`} onClick={()=>onEditSoil(zone)}>Actualizar estado del suelo</button>}
       </article>;
     })}</div>
-    {zones.length===0&&<p className="intrap-rain-note">Agregá una zona de ambiente y elegí su relieve para ver los avisos.</p>}
-    <p className="intrap-muted text-xs intrap-advisory-footnote">Avisos orientativos; no confirman sequía ni pérdida de pasto. No modifican stock ni crecimiento.</p>
   </section>;
 }

@@ -62,5 +62,6 @@ it('shows only productive zones, supports absent climate, empty and legacy analy
  expect(screen.queryByText('Laguna')).not.toBeInTheDocument();
  expect(within(screen.getByRole('article')).getByText('Loma')).toBeInTheDocument();
  rerender(<Advisories analysis={{}}/>);
- expect(screen.getByText(/Agregá una zona/)).toBeInTheDocument();
+ expect(screen.queryByRole('article')).not.toBeInTheDocument();
+ expect(screen.getByRole('combobox')).toBeEnabled();
 });

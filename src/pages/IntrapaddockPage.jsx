@@ -99,7 +99,7 @@ export default function IntrapaddockPage() {
   return <div className="app-page intrap-page">
     <Link className="app-button-ghost -ml-3 text-xs" to={`/potreros/${paddockId}`} onClick={e=>{if(pending&&!window.confirm('Hay cambios sin guardar. ¿Querés salir y descartarlos?'))e.preventDefault();}}><ArrowLeft size={16}/> Volver a {paddock.nombre}</Link>
     <header className="intrap-header">
-      <div><p className="intrap-eyebrow">{paddock.nombre} · {analysis.region_nombre}</p><h1>Análisis intrapotrero</h1><p className="intrap-muted">Pasto disponible, ambientes y recursos.</p></div>
+      <div><h1>Análisis intrapotrero</h1><p className="intrap-muted">Pasto disponible, ambientes y recursos.</p></div>
     </header>
     {error&&<p className="app-error" role="alert">{error}</p>}
     {notice&&<p className="intrap-message" role="status">{notice}</p>}
@@ -121,7 +121,7 @@ export default function IntrapaddockPage() {
       <Metric title="Crecimiento utilizable total" value={fmt(summary?.crecimiento_utilizable_total_kg_ms_dia)} unit="kg MS/día"/>
       <Metric title="Carga sobre área pastoreable" value={fmt(summary?.carga_cabezas_ha_pastoreable,2)} unit="cabezas/ha"/>
     </div>
-    <p className="intrap-muted text-xs mb-4">{pending?'Cambios pendientes: los indicadores corresponden a lo guardado.':`Análisis al ${analysis.fecha} · Zonas declaradas.`}</p>
+    {pending&&<p className="intrap-muted text-xs mb-4">Cambios pendientes: los indicadores corresponden a lo guardado.</p>}
     <IntrapaddockAdvisories analysis={analysis} stale={data.sin_actualizar||data.requiere_revision} disabled={pending||busy||calculating} onEditSoil={zone=>{focusSoil.current=true;begin(zone);}}/>
     <div className="intrap-workspace">
       <section className="intrap-map-panel" aria-label="Mapa intrapotrero">
