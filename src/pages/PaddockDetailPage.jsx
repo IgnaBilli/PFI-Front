@@ -524,10 +524,6 @@ export default function PaddockDetailPage() {
         </div>
       </section>
 
-      <section className="app-panel mt-4 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between" aria-label="Análisis intrapotrero">
-        <div><h2 className="font-display text-lg font-bold text-sand-100">Ambientes y acceso al pasto</h2><p className="mt-1 text-xs text-sand-500">Identificá ambientes, aguadas, sombras y sectores inaccesibles para ajustar la lectura del potrero.</p></div>
-        <Link to={`/potreros/${paddock.id}/intrapotrero`} className="app-button-secondary shrink-0">Analizar intrapotrero</Link>
-      </section>
       <section className="mt-4" aria-labelledby="actions-title">
         <div className="app-panel p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -551,15 +547,13 @@ export default function PaddockDetailPage() {
             </button>
           </div>
         </div>
-        <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="text-sm font-semibold text-sand-100">Uso del potrero</h3><p className="mt-1 text-xs text-sand-500">Desactivalo para dejar de recibir ganado y reorganizar los animales desde Rotación.</p></div>
-          <PaddockUseControl className="shrink-0 sm:text-right" id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          <Link to={`/potreros/${paddock.id}/intrapotrero`} className="rounded px-2 py-2 text-xs text-sand-400 transition-colors hover:bg-white/5 hover:text-sand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400">Analizar intrapotrero</Link>
+          <PaddockUseControl compact className="shrink-0 text-right" id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
         </div>
         </div>
         <StockProgress value={stockProgress} running={forageGenLoading} />
-        {!nutrition && <p className="mt-3 text-xs text-warning-400">{herd.length > 0
-          ? 'Todavía no se calculó la demanda del ganado asignado. Recalculá la demanda y actualizá el stock.'
-          : 'Actualmente no hay ganado asignado. El balance conserva el consumo histórico de los animales que estuvieron en el potrero.'}</p>}
+        {!nutrition && herd.length > 0 && <p className="mt-3 text-xs text-warning-400">Todavía no se calculó la demanda del ganado asignado. Recalculá la demanda y actualizá el stock.</p>}
         <StockCalculationNotice error={forageGenError} />
         <InlineError>{dmiError}</InlineError>
       </section>
@@ -576,11 +570,6 @@ export default function PaddockDetailPage() {
             <div className="mt-6">
               <StockTwoDays stock={latestForage} />
               <StockNextUpdate date={stockDetail?.seguimiento_diario?.proxima_actualizacion} running={forageGenLoading} />
-              <p className="mt-3 rounded-md border border-warning-400/25 bg-warning-400/10 px-3 py-2 text-xs leading-relaxed text-warning-400">
-                {stockDetail?.stock_inicial_estimado?.metodo === 'suma_produccion_utilizable_bloques_5_dias'
-                  ? 'Estimación de producción acumulada menos consumo, sin sumar biomasa previa. No reemplaza un aforo.'
-                  : 'Stock inicial preliminar no validado: es un proxy ajustado con DMP y no reemplaza un aforo.'}
-              </p>
               <details className="mt-4">
                 <summary className="cursor-pointer text-sm font-semibold text-sand-400">Ver crecimiento y detalles del cálculo</summary>
               <p className="mt-3 text-xs text-sand-500">Saldo guardado al {latestForage.fecha_objetivo ? formatShortDate(latestForage.fecha_objetivo) : 'sin fecha'} · rango {Number(latestForage.stock_final_min_kg_ms_ha).toFixed(0)}–{Number(latestForage.stock_final_max_kg_ms_ha).toFixed(0)} kg MS/ha</p>
