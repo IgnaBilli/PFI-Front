@@ -9,6 +9,11 @@ vi.mock('../services/api',()=>({api:{get:vi.fn(),post:vi.fn(),put:vi.fn()}}));
 const initial={revision:2,horizon:7,start:'2026-10-02',partial:false,refreshing:false,totals:{excessPaddocks:1,toMove:10,allocated:6,pending:4},recommendations:[{origin:1,name:'El Molino',remove:10,allocated:6,unallocated:4,excess:100,excessPercent:100,destinations:[{id:2,name:'La Loma',quantity:6}]}],paddocks:[{id:1,name:'El Molino',animals:20,stock:700,demand:200,growth:0,included:true,status:'EXCESO',issues:[],job:{},capacity:100,projectedAnimals:14,remainingExcess:40},{id:2,name:'La Loma',animals:0,stock:420,demand:0,growth:0,included:true,status:'DISPONIBLE',issues:[],job:{},capacity:60,projectedAnimals:6,remainingExcess:0}]};
 const view=()=>render(<MemoryRouter><Page/></MemoryRouter>);
 beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue(structuredClone(initial));});
+it('shows fuzzy priority without presenting its score as accuracy or adding inputs',async()=>{
+ const data=structuredClone(initial);data.recommendations[0].priority={level:'ALTA',score:90,explanation:'Reserva corta.'};api.get.mockResolvedValue(data);
+ view();expect(await screen.findByText('Prioridad Alta')).toHaveAttribute('title','Reserva corta.');
+ expect(screen.queryByText('90%')).not.toBeInTheDocument();expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+});
 it('shows quantities, destinations and unmet capacity without group forms or execution',async()=>{
  view();expect(await screen.findByText('10 animales')).toBeInTheDocument();expect(screen.getByText(/4 animales quedan/)).toBeInTheDocument();
  expect(screen.queryByRole('button',{name:'Crear grupo'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Aceptar plan'})).not.toBeInTheDocument();

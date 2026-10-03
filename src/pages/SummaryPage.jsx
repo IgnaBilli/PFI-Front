@@ -1,3 +1,4 @@
+import RotationPriority from '../components/RotationPriority';
 import {
   ArrowLeftRight,
   Beef,
@@ -205,7 +206,7 @@ export default function SummaryPage() {
         {rotationRecommendations.length > 0 && <div className="grid gap-px bg-sand-100/10 sm:grid-cols-2">
           {rotationRecommendations.map(r => <Link key={r.origin} to={`/rotacion#potrero-${r.origin}`} className="group flex items-start gap-3 bg-forest-800 px-5 py-4 hover:bg-forest-700">
             <ArrowLeftRight size={18} className="mt-1 shrink-0 text-warning-400" aria-hidden="true"/>
-            <span className="min-w-0 flex-1"><strong className="block text-sm text-white">{r.name} · {r.reason === 'FUERA_USO' ? 'Vaciar potrero fuera de uso' : 'Rotación recomendada'}</strong>
+            <span className="min-w-0 flex-1"><strong className="block text-sm text-white">{r.name} · {r.reason === 'FUERA_USO' ? 'Vaciar potrero fuera de uso' : 'Rotación recomendada'}</strong><RotationPriority priority={r.priority}/>
               <span className="mt-1 block text-xs text-warning-400">{r.reason === 'FUERA_USO' ? `Redistribuir los ${r.remove} animales.` : `Retirar aproximadamente ${r.remove} animales.`}</span>
               {r.destinations.length > 0 && <span className="mt-1 block text-xs text-sand-300">{r.destinations.map(d => `${d.quantity} a ${d.name}`).join(' · ')}</span>}
               {r.unallocated > 0 && <span className="mt-1 block text-xs text-warning-400">{r.unallocated} sin destino sugerido{r.needsDemand ? ': falta actualizar consumo' : ': falta capacidad'}.</span>}
