@@ -40,6 +40,7 @@ import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import PaddockUseControl from '../components/PaddockUseControl.jsx';
 import StockCalculationNotice from '../components/StockCalculationNotice.jsx';
+import StockProgress from '../components/StockProgress.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
 import StockTwoDays from '../components/StockTwoDays.jsx';
 import NutritionAmount from '../components/NutritionAmount.jsx';
@@ -241,6 +242,7 @@ export default function PaddockDetailPage() {
   }, [currentPaddockId]);
 
   const [forageGenLoading, setForageGenLoading] = useState(false);
+  const [stockProgress, setStockProgress] = useState(null);
   const [forageGenError, setForageGenError] = useState('');
   const [forageOverride, setForageOverride] = useState(null);
   const [dmiLoading, setDmiLoading] = useState(false);
@@ -250,6 +252,7 @@ export default function PaddockDetailPage() {
   useEffect(() => {
     forageRequestRef.current = false;
     setForageOverride(null);
+    setStockProgress(null);
     setForageGenError('');
     setDmiOverride(null);
     setDmiError('');
@@ -263,16 +266,19 @@ export default function PaddockDetailPage() {
     if (!paddock || forageRequestRef.current) return;
     forageRequestRef.current = true;
     setForageGenLoading(true);
+    setStockProgress(0);
     setForageGenError('');
     try {
-      const result = await createStockEstimate(paddock.id, localDateValue());
+      const result = await createStockEstimate(paddock.id, localDateValue(), false, job => setStockProgress(job.porcentaje ?? 0));
       setForageOverride(result);
+      setStockProgress(100);
       setForageHistory((current) => {
         const resultKey = forageEstimateKey(result);
         return [...current.filter((item) => forageEstimateKey(item) !== resultKey), result];
       });
     } catch (error) {
       setForageGenError(error);
+      setStockProgress(null);
     } finally {
       forageRequestRef.current = false;
       setForageGenLoading(false);
@@ -282,15 +288,15 @@ export default function PaddockDetailPage() {
   useEffect(() => {
     if (!paddock?.id) return;
     let cancelled = false;
-    createStockEstimate(paddock.id, undefined, true, () => {
-      if (!cancelled) { forageRequestRef.current = true; setForageGenLoading(true); }
+    createStockEstimate(paddock.id, undefined, true, job => {
+      if (!cancelled) { forageRequestRef.current = true; setForageGenLoading(true); setStockProgress(job.porcentaje ?? 0); }
     }).then(result => {
       if (!cancelled && result) {
         setForageOverride(result);
         setForageHistory(current => [...current.filter(item => forageEstimateKey(item) !== forageEstimateKey(result)), result]);
       }
     }).catch(error => {
-      if (!cancelled) setForageGenError(error);
+      if (!cancelled) { setForageGenError(error); setStockProgress(null); }
     }).finally(() => {
       if (!cancelled) { forageRequestRef.current = false; setForageGenLoading(false); }
     });
@@ -550,7 +556,7 @@ export default function PaddockDetailPage() {
           <PaddockUseControl className="shrink-0 sm:text-right" id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
         </div>
         </div>
-        {forageGenLoading && <p className="mt-3 text-xs text-sand-500">Se consultan escenas actuales e históricas. El proceso puede demorar varios minutos.</p>}
+        <StockProgress value={stockProgress} running={forageGenLoading} />
         {!nutrition && <p className="mt-3 text-xs text-warning-400">{herd.length > 0
           ? 'Todavía no se calculó la demanda del ganado asignado. Recalculá la demanda y actualizá el stock.'
           : 'Actualmente no hay ganado asignado. El balance conserva el consumo histórico de los animales que estuvieron en el potrero.'}</p>}

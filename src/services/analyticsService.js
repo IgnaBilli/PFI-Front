@@ -125,13 +125,14 @@ export async function createStockEstimate(paddockId, fecha, resumeOnly = false, 
   if (resumeOnly && job.estado === 'SIN_TAREA') return null
   if (resumeOnly && job.estado === 'ERROR') throw stockJobError(job)
   if (resumeOnly && job.estado === 'COMPLETADO') return job.resultado
-  if (job.estado === 'EJECUTANDO') onRunning()
+  if (job.estado === 'EJECUTANDO') onRunning(job)
   if (!job.estado || !job.id) return job
   const jobId = job.id
   while (job.estado === 'EJECUTANDO') {
     await new Promise(resolve => setTimeout(resolve, 3000))
     job = await api.get(`/potrero/${paddockId}/estimacion-stock/tarea`)
     if (job.id !== jobId) throw new Error('La tarea ya no está disponible. Verificá el último Stock guardado; el backend pudo reiniciarse.')
+    if (job.estado === 'EJECUTANDO' || job.estado === 'COMPLETADO') onRunning(job)
   }
   if (job.estado === 'ERROR') throw stockJobError(job)
   return job.resultado
