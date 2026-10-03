@@ -29,7 +29,6 @@ export default function StockTwoDays({ stock }) {
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-sand-500">Proyección con el crecimiento y consumo guardados, sin cambios del rodeo aún no calculados.</p>
     </div>
   );
 }

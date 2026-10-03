@@ -13,7 +13,6 @@ export default function StockNextUpdate({ date, running = false }) {
       <p className="text-sm font-semibold text-brand-400" role="status">
         {running ? 'Actualización de stock en curso…' : `Próxima actualización ${nextStockUpdateLabel(date, now)}`}
       </p>
-      <p className="mt-1 text-xs text-sand-500">Del crecimiento del bloque. El saldo de stock se actualiza diariamente.</p>
     </div>
   );
 }
