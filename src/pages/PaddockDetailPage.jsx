@@ -705,7 +705,7 @@ export default function PaddockDetailPage() {
                 Seleccionar todo el ganado
               </label>
 
-              <div className="space-y-2 sm:hidden">
+              <div role="region" aria-label="Lista de ganado asignado" tabIndex={0} className="max-h-[min(24rem,60vh)] space-y-2 overflow-y-auto overscroll-contain rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 sm:hidden">
                 {herd.map((animal) => (
                   <label key={animal.id} className={`app-panel-muted flex items-start gap-3 p-4 ${selectedHerdIds.includes(animal.id) ? 'border-brand-400/40 bg-brand-700/20' : ''}`}>
                     <input
@@ -724,9 +724,9 @@ export default function PaddockDetailPage() {
                 ))}
               </div>
 
-              <div className="hidden overflow-x-auto rounded-lg border border-sand-100/10 sm:block">
+              <div role="region" aria-label="Lista de ganado asignado" tabIndex={0} className="hidden max-h-[min(24rem,60vh)] overflow-auto overscroll-contain rounded-lg border border-sand-100/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 sm:block">
                 <table className="w-full min-w-[38rem] text-left text-xs">
-                  <thead className="bg-forest-850 text-sand-500">
+                  <thead className="sticky top-0 z-10 bg-forest-850 text-sand-500">
                     <tr>
                       <th className="w-12 px-4 py-3">
                         <input
