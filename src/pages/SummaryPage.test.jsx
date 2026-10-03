@@ -25,3 +25,10 @@ it('does not claim no pending recommendations when rotation is unavailable',()=>
  expect(screen.getByRole('alert')).toHaveTextContent('No se pudieron comprobar las rotaciones');
  expect(screen.queryByText('No hay recomendaciones pendientes con los datos disponibles.')).not.toBeInTheDocument();
 });
+it('includes preventive warnings in attention without suggesting animals to move',()=>{
+ useRotation.mockReturnValue({loading:false,data:{recommendations:[],warnings:[{origin:187,name:'Rincon',marginDays:101.84,priority:{level:'BAJA',explanation:'Reserva suficiente.'}}]}});
+ view();expect(screen.getByRole('link',{name:/Rincon · Saldo decreciente/})).toHaveAttribute('href','/rotacion#potrero-187');
+ expect(screen.getByText('Prioridad Baja')).toBeInTheDocument();
+ expect(screen.queryByText('No hay recomendaciones pendientes con los datos disponibles.')).not.toBeInTheDocument();
+ expect(screen.queryByText(/Retirar aproximadamente/)).not.toBeInTheDocument();
+});

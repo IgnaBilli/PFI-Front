@@ -32,3 +32,11 @@ it('incomplete data never claims all paddocks are safe',async()=>{
  api.get.mockResolvedValue({...initial,partial:true,recommendations:[],paddocks:initial.paddocks.map(p=>({...p,status:'SIN_DATOS',issues:['Actualizá el análisis de pasto.']}))});
  view();expect(await screen.findByText(/Faltan datos para completar/)).toBeInTheDocument();expect(screen.queryByText('No se recomienda retirar ganado')).not.toBeInTheDocument();
 });
+it('shows a preventive warning separately without proposing a transfer',async()=>{
+ const w={origin:2,name:'La Loma',dailyDeficit:20,marginDays:100,priority:{level:'BAJA',explanation:'Margen mayor a 14 días.'}};
+ api.get.mockResolvedValue({...initial,recommendations:[],warnings:[w]});view();
+ expect(await screen.findByRole('heading',{name:'Avisos preventivos'})).toBeInTheDocument();
+ expect(screen.getByText('Prioridad Baja')).toBeInTheDocument();
+ expect(screen.getByText(/todavía no se recomienda retirar ganado/)).toBeInTheDocument();
+ expect(screen.queryByText(/Retirar aproximadamente/)).not.toBeInTheDocument();
+});

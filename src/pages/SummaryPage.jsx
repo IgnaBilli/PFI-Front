@@ -84,6 +84,7 @@ export default function SummaryPage() {
   const { estanciaId, estancia } = useAuth();
   const rotation = useRotation(estanciaId);
   const rotationRecommendations = rotation.data?.recommendations ?? [];
+  const rotationWarnings = rotation.data?.warnings ?? [];
   const rotationOrigins = new Set(rotationRecommendations.map(r => r.origin));
   const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
   const { cattle, loading: cattleLoading, error: cattleError } = useCattle(estanciaId);
@@ -117,7 +118,7 @@ export default function SummaryPage() {
     (p) => dataById[p.id]?.recommendation && !alertPaddocks.includes(p)
   );
   const attentionPaddocks = [...alertPaddocks, ...recommendationPaddocks].filter(p => !rotationOrigins.has(p.id));
-  const recommendationsCount = attentionPaddocks.length + rotationRecommendations.length;
+  const recommendationsCount = attentionPaddocks.length + rotationRecommendations.length + rotationWarnings.length;
   const loadAlertCount = new Set([...alertPaddocks.map(p => p.id), ...rotationRecommendations.filter(r => r.reason !== 'FUERA_USO').map(r => r.origin)]).size;
   const attentionLoading = analyticsLoading || rotation.loading;
 
@@ -214,6 +215,14 @@ export default function SummaryPage() {
             </span>
           </Link>)}
         </div>}
+        {rotationWarnings.length > 0 && <div className="grid gap-px bg-sand-100/10 sm:grid-cols-2">
+          {rotationWarnings.map(w => <Link key={w.origin} to={`/rotacion#potrero-${w.origin}`} className="group flex items-start gap-3 bg-forest-800 px-5 py-4 hover:bg-forest-700">
+            <AlertTriangle size={18} className="mt-1 shrink-0 text-warning-400" aria-hidden="true"/>
+            <span><strong className="block text-sm text-white">{w.name} · Saldo decreciente</strong><RotationPriority priority={w.priority}/>
+              <span className="mt-1 block text-xs text-sand-300">Margen estimado: {Number(w.marginDays).toLocaleString('es-AR',{maximumFractionDigits:1})} días con la carga y el crecimiento actuales. Revisar evolución.</span>
+            </span>
+          </Link>)}
+        </div>}
         {attentionLoading ? (
           <div className="grid gap-3 p-4 sm:grid-cols-2" aria-label="Cargando acciones">
             <LoadingBlock className="h-20" />
@@ -224,7 +233,7 @@ export default function SummaryPage() {
             <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
             <span>No se pudieron comprobar las recomendaciones de los potreros.</span>
           </div>
-        ) : attentionPaddocks.length === 0 && (rotationRecommendations.length > 0 || rotation.error || rotation.data?.partial) ? null : attentionPaddocks.length === 0 ? (
+        ) : attentionPaddocks.length === 0 && (rotationRecommendations.length > 0 || rotationWarnings.length > 0 || rotation.error || rotation.data?.partial) ? null : attentionPaddocks.length === 0 ? (
           <div className="flex items-center gap-3 px-5 py-5 text-sm text-sand-300">
             <CheckCircle2 size={18} className="shrink-0 text-brand-400" aria-hidden="true" />
             <span>No hay recomendaciones pendientes con los datos disponibles.</span>
