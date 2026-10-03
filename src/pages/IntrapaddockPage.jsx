@@ -4,7 +4,6 @@ import {MapContainer, TileLayer, GeoJSON, CircleMarker, Polygon, Polyline, Toolt
 import {ArrowLeft, Layers, Plus, Save, Undo2, Pencil, Trash2, LoaderCircle} from 'lucide-react';
 import {api} from '../services/api.js';
 import {createStockEstimate} from '../services/analyticsService.js';
-import IntrapaddockWater from './IntrapaddockWater.jsx';
 import IntrapaddockAdvisories from './IntrapaddockAdvisories.jsx';
 import {WATER_STATES} from './intrapaddockWaterOptions.js';
 import './intrapaddock.css';
@@ -147,11 +146,9 @@ export default function IntrapaddockPage() {
         {drawing?<div className="intrap-form">
           <label>Nombre<input value={form.nombre} maxLength={100} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Ej.: Bajo del norte"/></label>
           <label>Tipo<select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})}>{Object.entries(TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
-          {form.tipo==='aguada'&&<p className="intrap-muted text-xs">Dibujá solo el agua, sin incluir pasto alrededor. Se excluye del área pastoreable y sigue siendo un recurso en el mapa.</p>}
-          {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Loma, media loma y bajo describen el terreno. Conservan el crecimiento base del potrero.</small></label>}
-          {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select ref={soilInput} value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><small className="intrap-muted">Registrá lo que viste a campo. No cambia el stock ni marca la zona como inaccesible.</small></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
+          {form.tipo==='ambiente'&&<label>Posición del relieve (declarada)<select value={form.posicion} onChange={e=>setForm({...form,posicion:e.target.value})}>{Object.entries(POSITIONS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}
+          {form.tipo==='ambiente'&&<><label>Estado del suelo observado (opcional)<select ref={soilInput} value={form.observacion_hidrica?.estado??''} onChange={e=>setForm({...form,observacion_hidrica:e.target.value?{estado:e.target.value,fecha:today()}:undefined})}><option value="">Sin observación</option>{Object.entries(WATER_STATES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>{form.observacion_hidrica&&<label>Fecha de observación<input type="date" max={today()} value={form.observacion_hidrica.fecha} onChange={e=>setForm({...form,observacion_hidrica:{...form.observacion_hidrica,fecha:e.target.value}})}/></label>}</>}
           {form.tipo==='inaccesible'&&<><label>Inaccesible desde<input type="date" value={form.desde} onChange={e=>setForm({...form,desde:e.target.value})}/></label><label>Hasta (opcional, inclusive)<input type="date" min={form.desde} value={form.hasta??''} onChange={e=>setForm({...form,hasta:e.target.value})}/></label></>}
-          <p className="intrap-muted text-xs">Marcá al menos tres puntos dentro del límite. Los ambientes pueden compartir bordes, pero no superponerse. Las sombras y restricciones sí pueden cruzar ambientes.</p>
           <div className="intrap-form-actions"><button className="app-button-ghost" onClick={()=>setVertices(v=>v.slice(0,-1))}><Undo2 size={14}/> Último punto</button><button className="app-button-ghost" onClick={()=>setVertices(paddock.geom.coordinates[0].slice(0,-1))}>Usar todo el potrero</button></div>
           <div className="intrap-form-actions"><button className="app-button-primary" onClick={acceptZone}>Aceptar zona</button><button className="app-button-secondary" onClick={()=>{setDrawing(false);setVertices([]);setError('');}}>Cancelar</button></div>
         </div>:<>
@@ -163,7 +160,6 @@ export default function IntrapaddockPage() {
       </aside>
     </div>
     <section className="app-panel intrap-section"><h2>Distribución por zonas</h2><p className="intrap-muted">Distribución de la referencia base según la superficie. El relieve no aplica un coeficiente de crecimiento.</p><div className="intrap-table-wrap"><table><thead><tr><th>Ambiente</th><th>Superficie</th><th>Del potrero</th><th>Aporte al promedio</th></tr></thead><tbody>{analysis.configuracion.zonas.filter(z=>z.tipo==='ambiente').map(z=><tr key={z.id}><td>{z.nombre}<small>{POSITIONS[z.posicion]??'Sin definir'}</small></td><td>{fmt(z.superficie_ha)} ha</td><td>{fmt(z.porcentaje)} %</td><td>{fmt(z.aporte_mensual_kg_ms_ha_dia[month],2)} kg MS/ha/día</td></tr>)}<tr><td>Sin clasificar<small>Referencia regional</small></td><td>{fmt(analysis.superficie_sin_clasificar_ha)} ha</td><td>{fmt(100*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha)} %</td><td>{fmt(analysis.referencia_base_mensual[month]==null?null:analysis.referencia_base_mensual[month]*analysis.superficie_sin_clasificar_ha/analysis.superficie_total_ha,2)} kg MS/ha/día</td></tr></tbody></table></div></section>
-    <IntrapaddockWater analysis={analysis} stale={data.sin_actualizar||data.requiere_revision}/>
 
   </div>;
 }
