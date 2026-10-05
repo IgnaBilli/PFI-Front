@@ -207,23 +207,9 @@ export default function PaddockDetailPage() {
   useEffect(() => {
     if (currentPaddockId == null) return undefined;
     let cancelled = false;
-    setClima(null);
     setTraslados([]);
-    setClimateLoading(true);
     setTransfersLoading(true);
-    setClimateError('');
     setTransfersError('');
-
-    fetchLatestClima(currentPaddockId)
-      .then((data) => {
-        if (!cancelled) setClima(data ?? null);
-      })
-      .catch((error) => {
-        if (!cancelled) setClimateError(error.message || 'No se pudo cargar el último dato climático.');
-      })
-      .finally(() => {
-        if (!cancelled) setClimateLoading(false);
-      });
 
     fetchPaddockTraslados(currentPaddockId)
       .then((rows) => {
@@ -259,6 +245,20 @@ export default function PaddockDetailPage() {
   }, [currentPaddockId]);
 
   const latestForage = forageOverride ?? entry?.stock ?? entry?.forage ?? null;
+  const climateStockVersion = latestForage?.id_estimacion_stock ?? latestForage?.fecha_calculo;
+  useEffect(() => {
+    if (currentPaddockId == null) return undefined;
+    let cancelled = false;
+    setClima(null);
+    setClimateLoading(true);
+    setClimateError('');
+    fetchLatestClima(currentPaddockId)
+      .then(data => { if (!cancelled) setClima(data ?? null); })
+      .catch(error => { if (!cancelled) setClimateError(error.message || 'No se pudo cargar el último dato climático.'); })
+      .finally(() => { if (!cancelled) setClimateLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentPaddockId, climateStockVersion]);
+
   const nutrition = dmiOverride ?? entry?.nutrition ?? null;
   const status = buildPaddockStatus({ ...entry, stock: latestForage, nutrition }, paddock?.hectares, herd.length);
 
@@ -801,7 +801,7 @@ export default function PaddockDetailPage() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="app-panel p-5 sm:p-6" aria-labelledby="climate-title">
-          <SectionHeading id="climate-title" title="Último registro climático" description="Datos observados asociados al potrero, sin interpretación de pronóstico." />
+          <SectionHeading id="climate-title" title="Último registro climático" description="Datos climáticos utilizados en el cálculo, con su fecha de referencia." />
           <div className="mt-5">
             {climateLoading ? (
               <div className="grid gap-3 sm:grid-cols-3">
@@ -825,7 +825,7 @@ export default function PaddockDetailPage() {
                     <dd className="mt-3 text-xl font-extrabold tabular-nums text-sand-100">{clima.humedad != null ? `${Number(clima.humedad).toFixed(0)} %` : 'Sin datos'}</dd>
                   </div>
                 </dl>
-                <p className="mt-4 text-xs text-sand-500">Registro {clima.fecha ? formatShortDate(clima.fecha) : 'sin fecha informada'}.</p>
+                <p className="mt-4 text-xs text-sand-500">Registro {clima.fecha ? formatShortDate(clima.fecha) : 'sin fecha informada'}{clima.fuente === 'OPEN_METEO_ARCHIVE' ? ' · Open-Meteo' : ''}.</p>
               </>
             ) : (
               <div className="app-empty min-h-40 rounded-lg border border-dashed border-sand-100/15">

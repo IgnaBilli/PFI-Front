@@ -50,8 +50,8 @@ export async function fetchActiveRecommendation(paddockId) {
 }
 
 // GET .../dato-clima devuelve el último dato climático persistido (sólo
-// vigente, no hay histórico). 404 si el potrero nunca corrió una estimación
-// forrajera todavía (la ingesta de clima ocurre junto con esa corrida).
+// vigente, no hay histórico). 404 si ningún cálculo de stock o estimación
+// forrajera pudo guardar información climática del proveedor.
 export async function fetchLatestClima(paddockId) {
   return safeGet(`/potrero/${paddockId}/dato-clima`)
 }
