@@ -16,7 +16,6 @@ import { withAnimalCounts } from '../services/mappers.js';
 import { createCattleForPaddock } from '../services/cattleService.js';
 import { polygonToViewBoxPoints } from '../utils/geo.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
-import PaddockUseControl from '../components/PaddockUseControl.jsx';
 
 // Silueta real del potrero en SVG (sin depender de tiles de mapa): conserva
 // la forma real de sus coordenadas, coloreada según el estado de pasto.
@@ -53,7 +52,7 @@ function PaddockShapeIcon({ paddock, color }) {
 
 export default function PaddocksPage() {
   const { estanciaId } = useAuth();
-  const { paddocks, loading: paddocksLoading, error: paddocksError, reload: reloadPaddocks } = usePaddocks(estanciaId);
+  const { paddocks, loading: paddocksLoading, error: paddocksError } = usePaddocks(estanciaId);
   const {
     cattle,
     loading: cattleLoading,
@@ -215,7 +214,14 @@ export default function PaddocksPage() {
                         <ArrowRight size={17} className="mt-1 shrink-0 text-sand-500 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                       </div>
 
-                      <div className={`mt-4 flex min-h-11 items-start gap-2 rounded-lg px-3 py-2.5 text-xs leading-relaxed ${details.alert ? 'bg-danger-400/10 text-danger-400' : details.recommendation ? 'bg-warning-400/10 text-warning-400' : 'bg-sand-100/[.04] text-sand-300'}`}>
+                      <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+                        <span className="text-sand-500">Consumo frente al crecimiento</span>
+                        <span className="shrink-0 font-semibold tabular-nums" style={{ color: details.loadColor }}>
+                          {analyticsLoading ? '…' : details.load}
+                        </span>
+                      </div>
+
+                      <div className={`mt-3 flex min-h-11 items-start gap-2 rounded-lg px-3 py-2.5 text-xs leading-relaxed ${details.alert ? 'bg-danger-400/10 text-danger-400' : details.recommendation ? 'bg-warning-400/10 text-warning-400' : 'bg-sand-100/[.04] text-sand-300'}`}>
                         {details.alert || details.recommendation ? (
                           <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
                         ) : (
@@ -234,7 +240,6 @@ export default function PaddocksPage() {
                       className="app-button-secondary w-full text-xs disabled:opacity-50">
                       <Plus size={14} aria-hidden="true" /> Agregar ganado
                     </button>
-                    <PaddockUseControl id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={paddock.animals} onChanged={reloadPaddocks}/>
                   </div>
                 </article>
               );
