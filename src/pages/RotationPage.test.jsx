@@ -17,7 +17,7 @@ it('shows fuzzy priority without presenting its score as accuracy or adding inpu
 it('shows quantities, destinations and unmet capacity without group forms or execution',async()=>{
  view();expect(await screen.findByText('10 animales')).toBeInTheDocument();expect(screen.getByText(/4 animales quedan/)).toBeInTheDocument();
  expect(screen.queryByRole('button',{name:'Crear grupo'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Aceptar plan'})).not.toBeInTheDocument();
- expect(screen.getAllByRole('checkbox')).toHaveLength(2);expect(screen.getByText(/no registra traslados/)).toBeInTheDocument();
+ expect(screen.getAllByRole('checkbox')).toHaveLength(2);expect(screen.getByText(/comprueban nuevamente al guardar/)).toBeInTheDocument();
 });
 it('excluding a paddock persists only availability and recalculates the comparison',async()=>{
  const user=userEvent.setup();view();await user.click(await screen.findByRole('checkbox',{name:'Incluir La Loma'}));

@@ -41,10 +41,11 @@ export function assignCattle({ id_potrero, id_ganado }) {
   return api.post('/asignacion-ganado', { id_potrero, id_ganado })
 }
 
-export function relocateCattle(origenPaddockId, { id_potrero_destino, id_ganado, fecha_movimiento }) {
+export function relocateCattle(origenPaddockId, { id_potrero_destino, id_ganado, fecha_movimiento, recommendation }) {
   return api.post(`/potrero/${origenPaddockId}/traslado-ganado`, {
     id_potrero_destino,
     id_ganado,
     fecha_movimiento,
+    ...(recommendation===true?{recommendation:true}:{}),
   })
 }

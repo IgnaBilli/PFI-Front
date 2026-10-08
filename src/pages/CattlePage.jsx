@@ -24,6 +24,7 @@ import {
   updateCattle,
 } from '../services/cattleService.js';
 import { ApiError } from '../services/api.js';
+import {CattleManagement} from '../components/RotationManagement.jsx';
 
 const STATUS_OPTIONS = [
   { value: 'L', label: 'L: Lactando (produciendo leche)', fullText: 'Lactando' },
@@ -436,6 +437,7 @@ export default function CattlePage() {
           </div>
         )}
 
+        <CattleManagement estanciaId={estanciaId} selectedIds={selectedIds} onChanged={reloadCattle}/>
         {selectedIds.length > 0 && (
           <div className="app-panel-muted flex flex-wrap items-center gap-2.5 p-3" aria-label="Acciones masivas">
             <span className="text-xs font-semibold text-brand-400">

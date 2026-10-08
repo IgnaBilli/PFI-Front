@@ -53,6 +53,20 @@ describe('TrasladoPage selection recovery', () => {
     hookState.paddocks = [];
   });
 
+  it('preserves recommendation capacity checking and destination after reopening',async()=>{
+    const user=userEvent.setup();
+    hookState.cattle=[{id:1,caravana:'A-1',paddockId:7,paddock:'Norte'}];
+    hookState.paddocks=[{id:7,name:'Norte',hectares:10},{id:9,name:'Destino',hectares:15}];
+    sessionStorage.setItem(storageKey,JSON.stringify({animalIds:[1],destinationId:9,recommendation:true}));
+    relocateCattle.mockRejectedValue(new Error('El destino ya no tiene capacidad.'));
+    renderPage(undefined);
+    expect(screen.getByRole('radio',{name:/Destino elegido/})).toBeChecked();
+    await user.click(screen.getByRole('button',{name:'Confirmar traslado'}));
+    await user.click(screen.getByRole('button',{name:'Confirmar'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El destino ya no tiene capacidad.');
+    expect(relocateCattle).toHaveBeenCalledWith(7,expect.objectContaining({recommendation:true,id_ganado:[1],id_potrero_destino:9}));
+  });
+
   it('recovers safely from malformed storage as an empty selection', async () => {
     sessionStorage.setItem(storageKey, '{invalid');
 

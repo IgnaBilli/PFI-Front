@@ -26,19 +26,24 @@ export default function TrasladoPage() {
   const { dataById, loading: analyticsLoading, error: analyticsError } = usePaddockAnalytics(paddocksWithCounts);
 
   const storageKey = `terrabovina:traslado:${estanciaId ?? 'sin-estancia'}`;
+  const [transferContext] = useState(()=>{
+    if(location.state&&Object.hasOwn(location.state,'animalIds'))return location.state;
+    try{const stored=JSON.parse(sessionStorage.getItem(storageKey)||'null');return stored&&!Array.isArray(stored)?stored:{};}catch{return {};}
+  });
   const [animalIds] = useState(() => {
     if (location.state && Object.hasOwn(location.state, 'animalIds')) {
       return normalizeAnimalIds(location.state.animalIds);
     }
     try {
-      return normalizeAnimalIds(JSON.parse(sessionStorage.getItem(storageKey) || '[]'));
+      const stored=JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+      return normalizeAnimalIds(Array.isArray(stored)?stored:stored?.animalIds);
     } catch {
       return [];
     }
   });
   const selectedAnimals = cattle.filter((animal) => animalIds.includes(Number(animal.id)));
 
-  const [selectedPaddockId, setSelectedPaddockId] = useState(null);
+  const [selectedPaddockId, setSelectedPaddockId] = useState(()=>Number(transferContext.destinationId)||null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -55,11 +60,11 @@ export default function TrasladoPage() {
   useEffect(() => {
     try {
       if (animalIds.length === 0) sessionStorage.removeItem(storageKey);
-      else sessionStorage.setItem(storageKey, JSON.stringify(animalIds));
+      else sessionStorage.setItem(storageKey, JSON.stringify({animalIds,destinationId:transferContext.destinationId,recommendation:transferContext.recommendation===true}));
     } catch {
       // The route state remains the primary source when storage is unavailable.
     }
-  }, [animalIds, storageKey]);
+  }, [animalIds, storageKey, transferContext]);
 
   useEffect(() => {
     if (!selectionIsStale) return;
@@ -94,6 +99,7 @@ export default function TrasladoPage() {
             id_potrero_destino: candidate.id,
             id_ganado: ids,
             fecha_movimiento: new Date().toISOString(),
+            recommendation:transferContext.recommendation===true,
           });
         }
         completedOrigins += 1;

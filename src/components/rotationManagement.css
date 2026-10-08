@@ -1,0 +1,12 @@
+.rotation-management{border:1px solid var(--border);border-radius:12px;margin:16px 0;padding:12px 16px;font-size:13px;color:var(--text-soft)}
+.rotation-management summary{cursor:pointer;font-weight:600;min-height:24px}
+.management-body{display:grid;gap:14px;padding-top:14px}
+.management-body fieldset{display:grid;gap:12px;border:0;padding:0;min-width:0}
+.management-body legend{font-weight:600;margin-bottom:10px}
+.management-body label{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.management-body input:not([type=checkbox]){max-width:100%;border:1px solid var(--border);background:var(--canvas);border-radius:6px;padding:8px;color:var(--text)}
+.management-options{display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap}
+.management-note,.management-group small{color:var(--text-muted);font-size:12px}
+.management-group-list{max-height:320px;overflow:auto;display:grid;gap:10px}
+.management-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px}
+.management-group>div{flex:1;min-width:150px}.management-group small{display:block;margin-top:4px}

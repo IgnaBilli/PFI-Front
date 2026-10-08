@@ -39,6 +39,7 @@ import { formatShortDate } from '../utils/format.js';
 import { paddockStay } from '../utils/paddockStay.js';
 import AddCattleModal from '../components/AddCattleModal.jsx';
 import PaddockUseControl from '../components/PaddockUseControl.jsx';
+import {PaddockManagement} from '../components/RotationManagement.jsx';
 import StockCalculationNotice from '../components/StockCalculationNotice.jsx';
 import StockProgress from '../components/StockProgress.jsx';
 import StockNextUpdate from '../components/StockNextUpdate.jsx';
@@ -552,6 +553,7 @@ export default function PaddockDetailPage() {
           <PaddockUseControl compact className="shrink-0 text-right" id={paddock.id} name={paddock.name} enabled={paddock.enabledForCattle} animals={herd.length} onChanged={reloadPaddocks}/>
         </div>
         </div>
+        <PaddockManagement estanciaId={estanciaId} paddockId={paddock.id}/>
         <StockProgress value={stockProgress} running={forageGenLoading} />
         {!nutrition && herd.length > 0 && <p className="mt-3 text-xs text-warning-400">Todavía no se calculó la demanda del ganado asignado. Recalculá la demanda y actualizá el stock.</p>}
         <StockCalculationNotice error={forageGenError} />
