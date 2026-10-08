@@ -28,15 +28,16 @@ export function PaddockManagement({estanciaId,paddockId}){
 export function CattleManagement({estanciaId,selectedIds=[],onChanged}){
   const {data,error,busy,load,save,setError}=useManagement(estanciaId);
   const [form,setForm]=useState({name:'',motherCalf:false,isolated:false,allowSplit:false}),[editing,setEditing]=useState(null);
+  const [replaceMembers,setReplaceMembers]=useState(false);
   const [condition,setCondition]=useState(''),[working,setWorking]=useState(false),[message,setMessage]=useState('');
   const update=(key,value)=>{setForm({...form,[key]:value,...(key==='motherCalf'&&value?{allowSplit:false}:{})});setMessage('');};
   async function submit(){
     const previous=data.management.groups.find(g=>g.id===editing);
-    const animalIds=selectedIds.length?selectedIds.map(Number):previous?.animalIds||[];
+    const animalIds=!editing||replaceMembers?selectedIds.map(Number):previous?.animalIds||[];
     if(!animalIds.length||!form.name.trim()){setError('Seleccioná ganado y escribí un nombre para el grupo.');return;}
     const id=editing||`group:${crypto.randomUUID()}`;
     if(await save({...data.management,groups:[...data.management.groups.filter(g=>g.id!==id),{...form,id,animalIds}]})){
-      setForm({name:'',motherCalf:false,isolated:false,allowSplit:false});setEditing(null);setMessage('Grupo guardado.');
+      setForm({name:'',motherCalf:false,isolated:false,allowSplit:false});setEditing(null);setReplaceMembers(false);setMessage('Grupo guardado.');
     }
   }
   async function applyCondition(){
@@ -50,6 +51,7 @@ export function CattleManagement({estanciaId,selectedIds=[],onChanged}){
       <div className="management-options"><label>Condición corporal (1–5)<input type="number" min="1" max="5" step="0.1" value={condition} onChange={e=>setCondition(e.target.value)}/></label><button className="app-button-secondary" disabled={working||busy||!selectedIds.length} onClick={applyCondition}>Aplicar a seleccionados</button></div>
       <fieldset disabled={busy||working}><legend>{editing?'Editar grupo':'Crear grupo con los seleccionados'}</legend>
         <label>Nombre<input maxLength={80} value={form.name} onChange={e=>update('name',e.target.value)}/></label>
+        {editing&&<label><input type="checkbox" checked={replaceMembers} disabled={!selectedIds.length} onChange={e=>setReplaceMembers(e.target.checked)}/>Reemplazar integrantes por los seleccionados</label>}
         <div className="management-options"><label><input type="checkbox" checked={form.motherCalf} onChange={e=>update('motherCalf',e.target.checked)}/>Madres con sus crías</label><label><input type="checkbox" checked={form.isolated} onChange={e=>update('isolated',e.target.checked)}/>Mantener separado de otros grupos</label><label><input type="checkbox" disabled={form.motherCalf} checked={form.allowSplit} onChange={e=>update('allowSplit',e.target.checked)}/>Permitir dividir el grupo</label></div>
         <button className="app-button-secondary" onClick={submit}>{busy?'Guardando…':'Guardar grupo'}</button>{editing&&<button className="app-button-secondary" onClick={()=>{setEditing(null);setForm({name:'',motherCalf:false,isolated:false,allowSplit:false});}}>Cancelar edición</button>}
       </fieldset>
