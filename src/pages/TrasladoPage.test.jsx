@@ -76,6 +76,31 @@ describe('TrasladoPage selection recovery', () => {
     await waitFor(() => expect(sessionStorage.getItem(storageKey)).toBeNull());
   });
 
+  it('reviews the note before sending and preserves it when a transfer fails', async () => {
+    const user = userEvent.setup();
+    hookState.cattle = [{ id: 1, caravana: 'A-1', paddockId: 7, paddock: 'Norte' }];
+    hookState.paddocks = [{ id: 7, name: 'Norte', hectares: 10 }, { id: 9, name: 'Destino', hectares: 15 }];
+    relocateCattle.mockRejectedValue(new Error('El destino ya no tiene capacidad.'));
+    renderPage({ animalIds: [1], destinationId: 9 });
+    const note = screen.getByRole('textbox', { name: 'Observaciones (opcional)' });
+    expect(note).toHaveAttribute('maxlength', '500');
+    await user.type(note, '  Más pasto disponible.  ');
+    await user.click(screen.getByRole('button', { name: 'Confirmar traslado' }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Observaciones: Más pasto disponible.');
+    expect(relocateCattle).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El destino ya no tiene capacidad.');
+    expect(relocateCattle).toHaveBeenCalledWith(7, expect.objectContaining({ observaciones: 'Más pasto disponible.' }));
+    expect(note).toHaveValue('  Más pasto disponible.  ');
+  });
+
+  it('does not offer a transfer note for an initial assignment without an origin', () => {
+    hookState.cattle = [{ id: 1, caravana: 'A-1', paddockId: null, paddock: '-' }];
+    hookState.paddocks = [{ id: 9, name: 'Destino', hectares: 15 }];
+    renderPage({ animalIds: [1] });
+    expect(screen.queryByRole('textbox', { name: 'Observaciones (opcional)' })).not.toBeInTheDocument();
+  });
+
   it('rejects a stored selection when any selected animal is stale and clears it', async () => {
     hookState.cattle = [
       { id: 1, caravana: 'A-1', paddockId: 7, paddock: 'Norte' },

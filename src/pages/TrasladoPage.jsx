@@ -47,6 +47,7 @@ export default function TrasladoPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [observations, setObservations] = useState('');
 
   const loading = paddocksLoading || cattleLoading;
   const candidate = paddocksWithCounts.find((p) => p.enabledForCattle !== false && Number(p.id) === selectedPaddockId) ?? null;
@@ -56,6 +57,10 @@ export default function TrasladoPage() {
   const movedCount = candidate
     ? selectedAnimals.filter((animal) => Number(animal.paddockId) !== Number(candidate.id)).length
     : 0;
+  const hasTransfer = selectedAnimals.some((animal) =>
+    animal.paddockId != null && (!candidate || Number(animal.paddockId) !== Number(candidate.id))
+  );
+  const transferNote = hasTransfer ? observations.trim() : '';
 
   useEffect(() => {
     try {
@@ -99,6 +104,7 @@ export default function TrasladoPage() {
             id_potrero_destino: candidate.id,
             id_ganado: ids,
             fecha_movimiento: new Date().toISOString(),
+            ...(transferNote ? { observaciones: transferNote } : {}),
             recommendation:transferContext.recommendation===true,
           });
         }
@@ -177,9 +183,11 @@ export default function TrasladoPage() {
         title="Confirmar traslado"
         message={
           candidate
-            ? `¿Seguro que querés realizar este cambio? Se ${
+            ? <>{`¿Seguro que querés realizar este cambio? Se ${
                 movedCount === 1 ? 'moverá 1 animal' : `moverán ${movedCount} animales`
-              } al potrero "${candidate.name}".${multipleOrigins ? ' Los movimientos se procesan por origen y un error intermedio puede dejar el traslado parcialmente completado.' : ''}`
+              } al potrero "${candidate.name}".${multipleOrigins ? ' Los movimientos se procesan por origen y un error intermedio puede dejar el traslado parcialmente completado.' : ''}`}
+              {transferNote && <span className="mt-3 block whitespace-pre-wrap break-words"><strong>Observaciones:</strong> {transferNote}</span>}
+            </>
             : '¿Seguro que querés realizar este cambio?'
         }
         confirmLabel="Confirmar"
@@ -221,6 +229,31 @@ export default function TrasladoPage() {
           </span>
         ))}
       </div>
+
+      {!loading && !paddocksError && !cattleError && hasTransfer && (
+        <div className="app-panel mt-5 p-4">
+          <label htmlFor="transfer-observations" className="block font-bold text-[var(--text-soft)]">
+            Observaciones (opcional)
+          </label>
+          <p id="transfer-observations-help" className="mt-1 text-xs text-[var(--text-muted)]">
+            Agregá el motivo o una nota. Se guardará en el historial de cada traslado.
+          </p>
+          <textarea
+            id="transfer-observations"
+            value={observations}
+            onChange={(event) => setObservations(event.target.value)}
+            disabled={submitting}
+            maxLength={500}
+            rows={3}
+            aria-describedby="transfer-observations-help transfer-observations-count"
+            placeholder="Por ejemplo: traslado a un potrero con más pasto disponible."
+            className="app-field mt-3 w-full resize-y disabled:opacity-50"
+          />
+          <p id="transfer-observations-count" className="mt-1 text-right text-xs text-[var(--text-muted)]">
+            {observations.length}/500 caracteres
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="app-empty mt-5 flex gap-2" role="status">
