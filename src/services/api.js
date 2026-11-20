@@ -1,6 +1,4 @@
-const DEFAULT_API_URL = 'https://backendterrabovina-production.up.railway.app/api/v2'
-
-export const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL
+export const API_BASE_URL = '/api/v2'
 
 const TOKEN_KEY = 'terrabovina-token'
 const USER_KEY = 'terrabovina-user'
