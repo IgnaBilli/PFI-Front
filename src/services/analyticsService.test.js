@@ -40,6 +40,7 @@ describe('analytics reads', () => {
       ] })
     await expect(fetchLatestStock(7)).resolves.toMatchObject({ stock_final_central_kg_ms_ha: 674 })
     const history = await fetchStockHistory(7)
+    expect(api.get).toHaveBeenCalledWith('/potrero/7/estimacion-stock/historico', { vista: 'grafico' })
     expect(history[0].stock_final_central_kg_ms_ha).toBe(710)
   })
 })

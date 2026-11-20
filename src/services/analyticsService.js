@@ -109,7 +109,7 @@ export async function fetchLatestStock(paddockId) {
 }
 
 export async function fetchStockHistory(paddockId) {
-  const data = await safeGet(`/potrero/${paddockId}/estimacion-stock/historico`)
+  const data = await safeGet(`/potrero/${paddockId}/estimacion-stock/historico`, { vista: 'grafico' })
   const list = Array.isArray(data?.estimaciones) ? data.estimaciones : []
   return [...list].sort((a, b) => timeOf(a) - timeOf(b))
 }
